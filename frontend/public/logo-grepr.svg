@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF8B60"/>
+      <stop offset="100%" stop-color="#FF4500"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Mirrored G at the TOP (opening faces left, center ~100,58) -->
+  <path
+    d="M 81 49 A 20 20 0 1 1 81 67"
+    stroke="url(#grad)"
+    stroke-width="3.5"
+    stroke-linecap="round"
+    fill="none"
+  />
+  <!-- G horizontal bar -->
+  <path
+    d="M 81 58 L 100 58"
+    stroke="url(#grad)"
+    stroke-width="3.5"
+    stroke-linecap="round"
+    fill="none"
+  />
+
+  <!-- R at the BOTTOM (center ~100,142) -->
+  <!-- Vertical stroke -->
+  <path
+    d="M 88 155 L 88 130"
+    stroke="url(#grad)"
+    stroke-width="3.5"
+    stroke-linecap="round"
+    fill="none"
+  />
+  <!-- R bump -->
+  <path
+    d="M 88 130 L 100 130 A 9 9 0 0 1 100 148 L 88 148"
+    stroke="url(#grad)"
+    stroke-width="3.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+  <!-- R leg -->
+  <path
+    d="M 97 148 L 112 155"
+    stroke="url(#grad)"
+    stroke-width="3.5"
+    stroke-linecap="round"
+    fill="none"
+  />
+
+  <!-- Right arrow: G down to R (curving right) -->
+  <path
+    d="M 118 62 C 155 80 155 125 118 143"
+    stroke="url(#grad)"
+    stroke-width="3"
+    stroke-linecap="round"
+    fill="none"
+  />
+  <!-- Arrowhead pointing down-left at bottom -->
+  <path
+    d="M 122 137 L 118 145 L 125 145"
+    stroke="url(#grad)"
+    stroke-width="3"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+
+  <!-- Left arrow: R up to G (curving left) -->
+  <path
+    d="M 78 143 C 45 125 45 80 78 62"
+    stroke="url(#grad)"
+    stroke-width="3"
+    stroke-linecap="round"
+    fill="none"
+  />
+  <!-- Arrowhead pointing up-right at top -->
+  <path
+    d="M 74 68 L 78 60 L 72 60"
+    stroke="url(#grad)"
+    stroke-width="3"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+</svg>

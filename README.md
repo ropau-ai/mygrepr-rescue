@@ -6,17 +6,28 @@ Built this to stop scrolling Reddit for finance advice and just have it all in o
 
 ## How it works
 
-1. Scheduler fetches posts daily from 12+ subreddits via PullPush.io
-2. Groq AI (LLaMA 3.3 70B) categorizes each post (ETF, Immobilier, Crypto, etc.)
-3. Everything gets stored in NocoDB
-4. Frontend coming soon
+1. Scheduler fetches posts daily from 14 subreddits via PullPush.io
+2. Groq AI (LLaMA 3.3 70B) categorizes each post into 16 categories (ETF, Immobilier, Crypto, Epargne, etc.)
+3. AI extracts financial data — patrimoine, revenus, savings, amounts mentioned
+4. Everything gets stored in NocoDB
+5. Next.js dashboard displays posts, ETF comparisons, daily digest, and trending topics
 
 ## Stack
 
-**Frontend** — Coming soon
-**Backend** — Python, Groq API
-**Data** — PullPush.io, NocoDB
-**Deploy** — Docker, Dokploy on Hetzner
+**Frontend** — Next.js 16, React 19, TypeScript, Tailwind v4, Framer Motion, Radix UI
+**Backend** — Python 3.12, Groq API (LLaMA 3.3 70B), DeepSeek fallback
+**Data** — PullPush.io + PRAW (Reddit), NocoDB
+**Deploy** — Docker, Dokploy on Hetzner VPS, Traefik reverse proxy
+
+## Features
+
+- **Dashboard** — Real-time stats, trending topics, daily digest with best advice
+- **ETF Comparison** — 15+ ETFs tracked with ISIN, TER, PEA/CTO eligibility, sentiment analysis
+- **AI Categorization** — 16 categories with tags, summaries, consensus strength
+- **Financial Extraction** — Detects patrimoine, revenus, savings, amounts via regex
+- **Language Filtering** — Toggle between French and English posts
+- **Dark/Light Theme** — Full theme support
+- **Favorites** — Save posts locally
 
 ## Run it yourself
 
@@ -28,6 +39,12 @@ cd mygrepr
 cp .env.example .env   # fill in your keys
 pip install -r requirements.txt
 python scheduler.py dry  # test run
+
+# frontend
+cd frontend
+npm install
+cp .env.example .env.local  # add NOCODB_URL, NOCODB_TOKEN, NOCODB_TABLE_ID
+npm run dev
 ```
 
 ## Scheduler
@@ -37,4 +54,23 @@ python scheduler.py          # daily loop (runs at 6:00)
 python scheduler.py dry      # one-time fetch, no push
 python scheduler.py status   # see progress
 python scheduler.py reset    # start fresh
+```
+
+## Project structure
+
+```
+├── backend/
+│   ├── config.py              # subreddits, categories, API config
+│   ├── fetchers/reddit.py     # PullPush.io + PRAW fetcher
+│   ├── processors/ai.py       # Groq AI categorization & extraction
+│   └── db/nocodb.py           # NocoDB client
+├── frontend/
+│   └── src/
+│       ├── app/               # Next.js 16 app router (pages, API routes)
+│       ├── components/        # dashboard, UI, navigation
+│       ├── lib/               # NocoDB client, ETF database, utils
+│       └── types/             # TypeScript interfaces
+├── scheduler.py               # daily orchestrator
+├── Dockerfile                 # backend container
+└── Procfile                   # PaaS entry point
 ```

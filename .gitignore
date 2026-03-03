@@ -30,8 +30,7 @@ import_posts.py
 .DS_Store
 Thumbs.db
 
-# Frontend (private — deployed separately)
-frontend/
+# Frontend build artifacts
 .next/
 node_modules/
 
