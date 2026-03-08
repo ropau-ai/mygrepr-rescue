@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn, getDataFreshness, getPostFreshness, getPostLanguage } from '@/lib/utils';
+import { cn, getDataFreshness, getPostFreshness, getPostLanguage, formatDistanceToNow } from '@/lib/utils';
 import { Post } from '@/types/post';
 import { getETFInsights } from '@/lib/nocodb';
-import { FileText, TrendingUp, DollarSign, BarChart3, ChevronDown, ArrowUp, MessageSquare, ArrowRight, Heart, Award, Clock, ExternalLink } from 'lucide-react';
+import { FileText, TrendingUp, DollarSign, BarChart3, ChevronDown, ArrowUp, MessageSquare, ArrowRight, Heart, Award, Clock, ExternalLink, Sparkles } from 'lucide-react';
 import { ETFComparison } from '@/components/dashboard/etf-comparison';
 import { DailyDigest } from '@/components/dashboard/daily-digest';
 import { PostDetail } from '@/components/dashboard/post-detail';
 import { isPostFavorite, togglePostFavorite, getFavorites } from '@/lib/favorites';
+import { getLastVisit, updateLastVisit, isNewSinceLastVisit, getReadPosts, markPostAsRead } from '@/lib/last-visit';
 import Link from 'next/link';
 
 interface DashboardPageProps {
@@ -23,11 +24,25 @@ export function DashboardPage({ posts }: DashboardPageProps) {
   const [langFilter, setLangFilter] = useState<'all' | 'fr' | 'en'>('fr');
   const [etfLang, setEtfLang] = useState<'all' | 'fr' | 'en'>('all');
   const [favoritePosts, setFavoritePosts] = useState<Set<string>>(new Set());
+  const [readPosts, setReadPosts] = useState<Set<string>>(new Set());
 
-  // Load favorites on mount
+  // Last visit tracking
+  const lastVisit = useRef<number | null>(null);
+  const [lastVisitLabel, setLastVisitLabel] = useState<string>('');
+
+  // Load favorites and last visit on mount
   useEffect(() => {
     const favorites = getFavorites();
     setFavoritePosts(new Set(favorites.posts));
+    const lv = getLastVisit();
+    lastVisit.current = lv;
+    if (lv) {
+      setLastVisitLabel(formatDistanceToNow(new Date(lv)));
+    }
+    setReadPosts(getReadPosts());
+    // Update last visit after delay so user sees new indicators
+    const timer = setTimeout(() => updateLastVisit(), 3000);
+    return () => clearTimeout(timer);
   }, []);
 
   // Data freshness
@@ -123,7 +138,15 @@ export function DashboardPage({ posts }: DashboardPageProps) {
     return `${n}€`;
   };
 
+  // Count new posts since last visit
+  const newPostCount = useMemo(() => {
+    if (!lastVisit.current) return 0;
+    return posts.filter(p => isNewSinceLastVisit(lastVisit.current, p.CreatedAt, p.created_utc)).length;
+  }, [posts]);
+
   const handlePostClick = (post: Post) => {
+    markPostAsRead(post.reddit_id);
+    setReadPosts(prev => new Set([...prev, post.reddit_id]));
     setSelectedPost(post);
   };
 
@@ -154,6 +177,36 @@ export function DashboardPage({ posts }: DashboardPageProps) {
             <span>{freshness.label}</span>
           </div>
         </div>
+
+        {/* New posts since last visit banner */}
+        {newPostCount > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 rounded-xl border border-green-500/30 bg-green-500/5 dark:bg-green-500/10 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-500/20">
+                <Sparkles className="w-5 h-5 text-green-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {newPostCount} nouveau{newPostCount > 1 ? 'x' : ''} post{newPostCount > 1 ? 's' : ''} depuis votre dernière visite
+                </p>
+                {lastVisitLabel && (
+                  <p className="text-xs text-muted-foreground">Dernière visite : {lastVisitLabel}</p>
+                )}
+              </div>
+            </div>
+            <Link
+              href="/posts?sort=date"
+              className="text-sm text-green-600 dark:text-green-400 hover:text-green-500 flex items-center gap-1 font-medium transition-colors"
+            >
+              Voir
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </motion.div>
+        )}
 
         {/* Daily Digest */}
         <DailyDigest posts={posts} onPostClick={handlePostClick} />
@@ -353,12 +406,24 @@ export function DashboardPage({ posts }: DashboardPageProps) {
           <div className="space-y-3">
             {displayPosts.slice(0, 8).map((post) => {
               const isFavorite = favoritePosts.has(post.reddit_id);
+              const isNew = isNewSinceLastVisit(lastVisit.current, post.CreatedAt, post.created_utc);
+              const isRead = readPosts.has(post.reddit_id);
               return (
                 <div
                   key={post.Id}
                   onClick={() => handlePostClick(post)}
-                  className="w-full text-left p-4 rounded-lg border border-border hover:bg-accent/30 hover:border-primary/30 transition-all group cursor-pointer relative"
+                  className={cn(
+                    "w-full text-left p-4 rounded-lg border transition-all group cursor-pointer relative overflow-hidden",
+                    isNew && !isRead
+                      ? 'border-green-500/40 dark:border-green-500/30 hover:border-green-500/60'
+                      : 'border-border hover:bg-accent/30 hover:border-primary/30',
+                    isRead && 'opacity-70'
+                  )}
                 >
+                  {/* Green left accent for new posts */}
+                  {isNew && !isRead && (
+                    <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-green-500 rounded-l-lg" />
+                  )}
                   <div className="flex items-start gap-4">
                     <div className="flex flex-col items-center gap-1 text-muted-foreground">
                       <ArrowUp className="w-4 h-4" />
@@ -371,6 +436,11 @@ export function DashboardPage({ posts }: DashboardPageProps) {
                         >
                           {post.category}
                         </span>
+                        {isNew && !isRead && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-500/20 text-green-600 dark:text-green-400 animate-pulse">
+                            NOUVEAU
+                          </span>
+                        )}
                         <span className="text-xs text-muted-foreground">
                           r/{post.subreddit}
                         </span>

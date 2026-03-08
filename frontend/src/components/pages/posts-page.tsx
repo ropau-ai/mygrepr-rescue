@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn, getPostLanguage, getDataFreshness, getPostFreshness, getConfidenceScore, filterByTimePeriod, type TimePeriod } from '@/lib/utils';
+import { cn, getPostLanguage, getDataFreshness, getPostFreshness, getConfidenceScore, filterByTimePeriod, type TimePeriod, formatDistanceToNow } from '@/lib/utils';
 import { Post, CATEGORIES, CATEGORY_COLORS } from '@/types/post';
-import { Search, X, MessageSquare, ArrowUp, Filter, LayoutGrid, List, Clock } from 'lucide-react';
+import { Search, X, MessageSquare, ArrowUp, Filter, LayoutGrid, List, Clock, Sparkles } from 'lucide-react';
 import { PostDetail } from '@/components/dashboard/post-detail';
+import { getLastVisit, updateLastVisit, isNewSinceLastVisit, getReadPosts, markPostAsRead } from '@/lib/last-visit';
 
 interface PostsPageProps {
   posts: Post[];
@@ -23,8 +24,31 @@ export function PostsPage({ posts }: PostsPageProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [visibleCount, setVisibleCount] = useState(30);
+  const [readPosts, setReadPosts] = useState<Set<string>>(new Set());
 
   const POSTS_PER_PAGE = 30;
+
+  // Last visit tracking
+  const lastVisit = useRef<number | null>(null);
+  const [lastVisitLabel, setLastVisitLabel] = useState<string>('');
+
+  useEffect(() => {
+    const lv = getLastVisit();
+    lastVisit.current = lv;
+    if (lv) {
+      setLastVisitLabel(formatDistanceToNow(new Date(lv)));
+    }
+    setReadPosts(getReadPosts());
+    // Update last visit after a short delay so user sees the "new" indicators
+    const timer = setTimeout(() => updateLastVisit(), 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Count new posts since last visit
+  const newPostCount = useMemo(() => {
+    if (!lastVisit.current) return 0;
+    return posts.filter(p => isNewSinceLastVisit(lastVisit.current, p.CreatedAt, p.created_utc)).length;
+  }, [posts]);
 
   // Data freshness
   const freshness = useMemo(() => getDataFreshness(posts), [posts]);
@@ -141,6 +165,12 @@ export function PostsPage({ posts }: PostsPageProps) {
 
   const hasFilters = selectedCategories.length > 0 || selectedSubreddits.length > 0 || selectedLanguage !== 'all' || selectedTimePeriod !== 'all' || searchQuery;
 
+  const handlePostClick = (post: Post) => {
+    markPostAsRead(post.reddit_id);
+    setReadPosts(prev => new Set([...prev, post.reddit_id]));
+    setSelectedPost(post);
+  };
+
   return (
     <motion.main
       initial={{ opacity: 0 }}
@@ -177,6 +207,27 @@ export function PostsPage({ posts }: PostsPageProps) {
             <span>{freshness.label}</span>
           </div>
         </div>
+
+        {/* New posts since last visit banner */}
+        {newPostCount > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 p-3 rounded-xl border border-green-500/30 bg-green-500/5 dark:bg-green-500/10 flex items-center gap-3"
+          >
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-500/20">
+              <Sparkles className="w-4 h-4 text-green-500" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                {newPostCount} nouveau{newPostCount > 1 ? 'x' : ''} post{newPostCount > 1 ? 's' : ''} depuis votre dernière visite
+              </p>
+              {lastVisitLabel && (
+                <p className="text-xs text-muted-foreground">Dernière visite: {lastVisitLabel}</p>
+              )}
+            </div>
+          </motion.div>
+        )}
 
         {/* Search + Filters */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -432,15 +483,26 @@ export function PostsPage({ posts }: PostsPageProps) {
               : 'flex flex-col gap-2'
           )}
         >
-          {visiblePosts.map((post) => (
+          {visiblePosts.map((post) => {
+            const isNew = isNewSinceLastVisit(lastVisit.current, post.CreatedAt, post.created_utc);
+            const isRead = readPosts.has(post.reddit_id);
+            return (
             <div
               key={post.Id}
-              onClick={() => setSelectedPost(post)}
+              onClick={() => handlePostClick(post)}
               className={cn(
-                'rounded-xl border cursor-pointer transition-all bg-card border-border hover:border-primary/30 hover:-translate-y-0.5',
+                'rounded-xl border cursor-pointer transition-all bg-card hover:-translate-y-0.5 relative overflow-hidden',
+                isNew && !isRead
+                  ? 'border-green-500/40 dark:border-green-500/30 shadow-[0_0_12px_-4px_rgba(34,197,94,0.2)]'
+                  : 'border-border hover:border-primary/30',
+                isRead && 'opacity-70',
                 viewMode === 'grid' ? 'p-3' : 'p-3 flex items-center gap-4'
               )}
             >
+              {/* Green left accent for new posts */}
+              {isNew && !isRead && (
+                <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-green-500 rounded-l-xl" />
+              )}
               {viewMode === 'grid' ? (
                 <>
                   {/* Grid View */}
@@ -451,6 +513,11 @@ export function PostsPage({ posts }: PostsPageProps) {
                       >
                         {post.category}
                       </div>
+                      {isNew && !isRead && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold font-sans bg-green-500/20 text-green-600 dark:text-green-400 animate-pulse">
+                          NOUVEAU
+                        </span>
+                      )}
                       {(() => {
                         const freshness = getPostFreshness(post.created_utc, post.created_a);
                         return (
@@ -530,6 +597,11 @@ export function PostsPage({ posts }: PostsPageProps) {
                     >
                       {post.category}
                     </div>
+                    {isNew && !isRead && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold font-sans bg-green-500/20 text-green-600 dark:text-green-400 animate-pulse">
+                        NOUVEAU
+                      </span>
+                    )}
                     {(() => {
                       const freshness = getPostFreshness(post.created_utc, post.created_a);
                       return (
@@ -578,7 +650,8 @@ export function PostsPage({ posts }: PostsPageProps) {
                 </>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Load more */}
