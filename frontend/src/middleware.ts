@@ -2,6 +2,18 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
+  // Maintenance mode toggle — set MAINTENANCE_MODE=true in .env to activate
+  const isMaintenanceMode = process.env.MAINTENANCE_MODE === 'true'
+  if (isMaintenanceMode) {
+    const pathname = request.nextUrl.pathname
+    const isExcluded =
+      pathname.startsWith('/maintenance') ||
+      pathname.startsWith('/_next/')
+    if (!isExcluded) {
+      return NextResponse.rewrite(new URL('/maintenance', request.url))
+    }
+  }
+
   const response = NextResponse.next();
 
   // Security headers
