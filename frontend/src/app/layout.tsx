@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display, Libre_Baskerville, JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { frFR } from "@clerk/localizations";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Navigation } from "@/components/navigation";
 import { MinimalFooter } from "@/components/minimal-footer";
@@ -41,14 +42,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      localization={frFR}
+      appearance={{
+        elements: {
+          footer: { display: "none" },
+          footerAction: { display: "none" },
+          badge: { display: "none" },
+          dividerRow: { display: "none" },
+        },
+      }}
+    >
       <html lang="fr" suppressHydrationWarning className="scroll-smooth">
         <body
           className={`${inter.variable} ${playfair.variable} ${baskerville.variable} ${jetbrainsMono.variable} antialiased`}
         >
           <ThemeProvider
             attribute="class"
-            defaultTheme="dark"
+            defaultTheme="light"
             enableSystem
             disableTransitionOnChange={false}
           >

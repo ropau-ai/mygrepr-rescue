@@ -4,11 +4,15 @@ import type { NextRequest } from 'next/server';
 
 // Public routes — accessible without login
 const isPublicRoute = createRouteMatcher([
+  '/',
   '/landing(.*)',
   '/login(.*)',
   '/sign-up(.*)',
   '/maintenance(.*)',
   '/about(.*)',
+  '/posts(.*)',
+  '/consensus(.*)',
+  '/settings(.*)',
   '/api/posts(.*)',
 ]);
 

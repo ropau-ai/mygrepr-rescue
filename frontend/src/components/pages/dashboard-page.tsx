@@ -4,9 +4,9 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { cn, getDataFreshness, getPostFreshness, getPostLanguage, formatDistanceToNow } from '@/lib/utils';
 import { Post, CONSENSUS_COLORS } from '@/types/post';
 import { getETFInsights } from '@/lib/nocodb';
-import { TrendingUp, ChevronRight, Sparkles, ArrowRight, Clock, ArrowUp, MessageSquare, ChevronLeft } from 'lucide-react';
+import { TrendingUp, ArrowRight, Clock, ArrowUp, MessageSquare, ChevronLeft, ChevronRight, Sparkles, BarChart3, Newspaper } from 'lucide-react';
 import { ETFComparison } from '@/components/dashboard/etf-comparison';
-import { getLastVisit, updateLastVisit, isNewSinceLastVisit, getReadPosts } from '@/lib/last-visit';
+import { getLastVisit, updateLastVisit, isNewSinceLastVisit } from '@/lib/last-visit';
 import Link from 'next/link';
 
 interface DashboardPageProps {
@@ -20,76 +20,15 @@ function getPostDate(post: Post): Date | null {
   return null;
 }
 
-const CATEGORY_GRADIENTS: Record<string, string> = {
-  'ETF': 'from-emerald-600/80 to-teal-700/80',
-  'Immobilier': 'from-amber-600/80 to-orange-700/80',
-  'Crypto': 'from-purple-600/80 to-indigo-700/80',
-  'Epargne': 'from-blue-600/80 to-cyan-700/80',
-  'Fiscalite': 'from-rose-600/80 to-pink-700/80',
-  'Actions': 'from-sky-600/80 to-blue-700/80',
-  'Strategie': 'from-violet-600/80 to-purple-700/80',
-  'Milestone': 'from-yellow-500/80 to-amber-600/80',
-  'Question': 'from-slate-500/80 to-gray-600/80',
-  'Retour XP': 'from-green-600/80 to-emerald-700/80',
-  'Budget': 'from-lime-600/80 to-green-700/80',
-  'Retraite': 'from-orange-500/80 to-red-600/80',
-  'Credit': 'from-red-600/80 to-rose-700/80',
-  'Carriere': 'from-teal-600/80 to-cyan-700/80',
-  'Actualite': 'from-zinc-500/80 to-neutral-600/80',
-  'Autre': 'from-gray-500/80 to-zinc-600/80',
+const CATEGORY_TAG_COLORS: Record<string, string> = {
+  'ETF': 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+  'Immobilier': 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+  'Crypto': 'bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400',
+  'Epargne': 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+  'Fiscalite': 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400',
+  'Actions': 'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400',
+  'Strategie': 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400',
 };
-
-const CATEGORY_ICONS: Record<string, string> = {
-  'ETF': 'TrendingUp',
-  'Immobilier': 'Home',
-  'Crypto': 'Bitcoin',
-  'Epargne': 'PiggyBank',
-  'Fiscalite': 'Receipt',
-  'Actions': 'BarChart3',
-  'Strategie': 'Target',
-  'Milestone': 'Trophy',
-  'Question': 'HelpCircle',
-  'Retour XP': 'MessageSquare',
-  'Budget': 'Wallet',
-  'Retraite': 'Clock',
-  'Credit': 'CreditCard',
-  'Carriere': 'Briefcase',
-  'Actualite': 'Newspaper',
-  'Autre': 'FileText',
-};
-
-function CategoryBanner({ category }: { category: string }) {
-  const gradient = CATEGORY_GRADIENTS[category] || 'from-gray-500/80 to-zinc-600/80';
-  return (
-    <div className={cn('h-24 rounded-t-lg bg-gradient-to-br flex items-center justify-center relative overflow-hidden', gradient)}>
-      <span className="text-white/20 text-6xl font-bold select-none" style={{ fontFamily: 'var(--font-serif), serif' }}>
-        {category.charAt(0)}
-      </span>
-      <div className="absolute bottom-2 left-3">
-        <span className="text-white/90 text-[10px] font-medium uppercase tracking-wider">{category}</span>
-      </div>
-    </div>
-  );
-}
-
-function ConsensusLabel({ consensus }: { consensus: string | undefined }) {
-  if (!consensus) return null;
-  const lower = consensus.toLowerCase();
-  const info = CONSENSUS_COLORS[lower];
-  if (!info) return null;
-  const colors: Record<string, string> = {
-    'fort': 'text-green-500',
-    'moyen': 'text-yellow-500',
-    'faible': 'text-orange-500',
-    'divisé': 'text-red-500',
-    'divise': 'text-red-500',
-  };
-  return (
-    <span className={cn('text-[10px] font-semibold uppercase tracking-wider', colors[lower] || 'text-muted-foreground')}>
-      {info.label}
-    </span>
-  );
-}
 
 export function DashboardPage({ posts }: DashboardPageProps) {
   const [langFilter, setLangFilter] = useState<'all' | 'fr' | 'en'>('fr');
@@ -113,7 +52,6 @@ export function DashboardPage({ posts }: DashboardPageProps) {
     return posts.filter(p => isNewSinceLastVisit(lastVisit.current, p.CreatedAt, p.created_utc)).length;
   }, [posts]);
 
-  // Split posts: "Today/Recent" (last 7 days) vs "Archive" (older, analyzed)
   const { recentPosts, archivePosts } = useMemo(() => {
     const now = Date.now();
     const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
@@ -139,7 +77,6 @@ export function DashboardPage({ posts }: DashboardPageProps) {
     };
   }, [posts, langFilter]);
 
-  // Top News: rotate through top posts in pairs
   const topNewsPairs = useMemo(() => {
     const topPosts = recentPosts.length >= 4
       ? recentPosts.filter(p => p.summary).slice(0, 8)
@@ -151,7 +88,6 @@ export function DashboardPage({ posts }: DashboardPageProps) {
     return pairs;
   }, [recentPosts, archivePosts]);
 
-  // Auto-rotate top news every 8 seconds
   useEffect(() => {
     if (topNewsPairs.length <= 1) return;
     const interval = setInterval(() => {
@@ -162,7 +98,6 @@ export function DashboardPage({ posts }: DashboardPageProps) {
 
   const currentTopNews = topNewsPairs[topNewsIndex] || [];
 
-  // ETF posts for ranking
   const etfPosts = useMemo(() => {
     if (langFilter === 'all') return posts;
     return posts.filter(p => getPostLanguage(p.subreddit) === langFilter);
@@ -175,27 +110,46 @@ export function DashboardPage({ posts }: DashboardPageProps) {
     return { totalPosts: posts.length, etfMentions: postsWithETF.size };
   }, [posts]);
 
-  const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-  // Dummy handler for ETF comparison clicks
+  const today = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
   const handlePostClick = () => {};
 
   return (
-    <main className="min-h-screen bg-background pt-6 pb-16">
-      <div className="px-6 py-8 max-w-[1400px] mx-auto w-full">
+    <main className="min-h-screen bg-background pb-16">
+      <div className="max-w-[1200px] mx-auto px-6 py-10">
+
+        {/* Hero */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-gradient mb-4" style={{ fontFamily: 'var(--font-serif), serif' }}>
+            Insight du Jour
+          </h1>
+          <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+            <Link href="/posts" className="flex items-center gap-1 hover:text-foreground transition-colors">
+              <ChevronLeft className="w-4 h-4" /> Precedent
+            </Link>
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" /> {today}
+            </span>
+            <button
+              onClick={() => setTopNewsIndex(prev => (prev + 1) % Math.max(topNewsPairs.length, 1))}
+              className="flex items-center gap-1 hover:text-foreground transition-colors"
+            >
+              Suivant <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
 
         {/* New posts banner */}
         {newPostCount > 0 && (
-          <div className="mb-5 p-3 rounded-lg border border-border bg-card flex items-center justify-between">
+          <div className="mb-8 p-4 rounded-xl border border-primary/20 bg-primary/5 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Sparkles className="w-4 h-4 text-muted-foreground" />
-              <p className="text-xs font-medium">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <p className="text-sm font-medium">
                 {newPostCount} nouveau{newPostCount > 1 ? 'x' : ''} post{newPostCount > 1 ? 's' : ''}
               </p>
-              {lastVisitLabel && <span className="text-[11px] text-muted-foreground">({lastVisitLabel})</span>}
+              {lastVisitLabel && <span className="text-xs text-muted-foreground">({lastVisitLabel})</span>}
             </div>
-            <Link href="/posts?sort=date" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
-              View <ArrowRight className="w-3 h-3" />
+            <Link href="/posts?sort=date" className="text-sm text-primary hover:text-primary/80 flex items-center gap-1 font-medium transition-colors">
+              Voir <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         )}
@@ -203,85 +157,92 @@ export function DashboardPage({ posts }: DashboardPageProps) {
         {/* Language filter + stats */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="inline-flex rounded-md border border-border bg-card p-0.5">
-              {([
-                { key: 'all' as const, label: 'All' },
-                { key: 'fr' as const, label: 'FR' },
-                { key: 'en' as const, label: 'EN' },
-              ]).map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => setLangFilter(key)}
-                  className={cn(
-                    'px-3 py-1 rounded text-xs font-medium transition-all',
-                    langFilter === key ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+            {(['all', 'fr', 'en'] as const).map((key) => (
+              <button
+                key={key}
+                onClick={() => setLangFilter(key)}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                  langFilter === key
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background text-muted-foreground border-border hover:border-foreground/20'
+                )}
+              >
+                {key === 'all' ? 'Tous' : key.toUpperCase()}
+              </button>
+            ))}
+            <span className="text-xs text-muted-foreground flex items-center gap-1 ml-2">
               <Clock className="w-3 h-3" /> {freshness.label}
             </span>
           </div>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {stats.totalPosts} posts &middot; {stats.etfMentions} ETF mentions
           </span>
         </div>
 
-        {/* ===== TOP NEWS ===== */}
-        <section className="mb-10">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold" style={{ fontFamily: 'var(--font-serif), serif' }}>
+        {/* Top News Featured Cards */}
+        <section className="mb-12">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-xl font-bold flex items-center gap-2" style={{ fontFamily: 'var(--font-serif), serif' }}>
+              <Newspaper className="w-5 h-5 text-primary" />
               Top News
             </h2>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground">{today}</span>
-              {topNewsPairs.length > 1 && (
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setTopNewsIndex(prev => prev === 0 ? topNewsPairs.length - 1 : prev - 1)}
-                    className="p-1 rounded hover:bg-accent transition-colors"
-                  >
-                    <ChevronLeft className="w-4 h-4 text-muted-foreground" />
-                  </button>
-                  <span className="text-[10px] text-muted-foreground">{topNewsIndex + 1}/{topNewsPairs.length}</span>
-                  <button
-                    onClick={() => setTopNewsIndex(prev => (prev + 1) % topNewsPairs.length)}
-                    className="p-1 rounded hover:bg-accent transition-colors"
-                  >
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                  </button>
-                </div>
-              )}
-            </div>
+            {topNewsPairs.length > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setTopNewsIndex(prev => prev === 0 ? topNewsPairs.length - 1 : prev - 1)}
+                  className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+                </button>
+                <span className="text-xs text-muted-foreground">{topNewsIndex + 1}/{topNewsPairs.length}</span>
+                <button
+                  onClick={() => setTopNewsIndex(prev => (prev + 1) % topNewsPairs.length)}
+                  className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Featured 2 cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {currentTopNews.map((post) => {
               const postFreshness = getPostFreshness(post.created_utc, post.created_a);
+              const tagColor = CATEGORY_TAG_COLORS[post.category] || 'bg-gray-50 text-gray-600';
+              const consensus = post.consensus?.toLowerCase();
+              const consensusInfo = consensus ? CONSENSUS_COLORS[consensus] : null;
+
               return (
                 <Link key={post.reddit_id} href={`/posts/${post.reddit_id}`}>
-                  <div className="bg-card border border-border rounded-lg overflow-hidden hover:border-foreground/20 transition-all cursor-pointer h-full flex flex-col">
-                    <CategoryBanner category={post.category} />
-                    <div className="p-4 flex flex-col flex-1">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-[10px] text-muted-foreground">r/{post.subreddit}</span>
-                        <span className="text-[10px] text-muted-foreground">{postFreshness.label}</span>
-                      </div>
-                      <h3 className="text-base font-bold leading-snug mb-2 flex-1" style={{ fontFamily: 'var(--font-serif), serif' }}>
-                        {post.title}
-                      </h3>
-                      {post.summary && (
-                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 mb-3">{post.summary}</p>
+                  <div className="bg-card border border-border rounded-xl p-6 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer h-full flex flex-col">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className={cn('px-2.5 py-0.5 rounded-full text-xs font-medium', tagColor)}>
+                        {post.category}
+                      </span>
+                      <span className="text-xs text-muted-foreground">r/{post.subreddit}</span>
+                      <span className="text-xs text-muted-foreground ml-auto">{postFreshness.label}</span>
+                    </div>
+                    <h3 className="text-lg font-bold leading-snug mb-3 flex-1" style={{ fontFamily: 'var(--font-serif), serif' }}>
+                      {post.title}
+                    </h3>
+                    {post.summary && (
+                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 mb-4">{post.summary}</p>
+                    )}
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground mt-auto pt-3 border-t border-border">
+                      <span className="flex items-center gap-1"><ArrowUp className="w-3.5 h-3.5" />{post.score}</span>
+                      <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{post.num_comments || 0}</span>
+                      {consensusInfo && (
+                        <span className={cn(
+                          'ml-auto font-medium',
+                          consensus === 'fort' && 'text-green-600',
+                          consensus === 'moyen' && 'text-yellow-600',
+                          consensus === 'faible' && 'text-orange-600',
+                          (consensus === 'divise' || consensus === 'divisé') && 'text-red-600',
+                        )}>
+                          {consensusInfo.label}
+                        </span>
                       )}
-                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-auto">
-                        <span className="flex items-center gap-1"><ArrowUp className="w-3 h-3" />{post.score}</span>
-                        <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" />{post.num_comments || 0}</span>
-                        <ConsensusLabel consensus={post.consensus} />
-                      </div>
                     </div>
                   </div>
                 </Link>
@@ -290,33 +251,30 @@ export function DashboardPage({ posts }: DashboardPageProps) {
           </div>
         </section>
 
-        {/* ===== DAILY / RECENT POSTS ===== */}
+        {/* Recent Posts */}
         {recentPosts.length > 0 && (
-          <section className="mb-10">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-bold flex items-center gap-2" style={{ fontFamily: 'var(--font-serif), serif' }}>
-                <Sparkles className="w-4 h-4 text-green-500" />
-                Recent ({recentPosts.length})
+          <section className="mb-12">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-xl font-bold flex items-center gap-2" style={{ fontFamily: 'var(--font-serif), serif' }}>
+                <TrendingUp className="w-5 h-5 text-primary" />
+                Recents ({recentPosts.length})
               </h2>
-              <Link href="/posts?sort=date" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
-                View all <ArrowRight className="w-3 h-3" />
+              <Link href="/posts?sort=date" className="text-sm text-primary hover:text-primary/80 flex items-center gap-1 font-medium transition-colors">
+                Voir tout <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
             <div className="space-y-2">
               {recentPosts.slice(0, 5).map((post) => {
                 const postFreshness = getPostFreshness(post.created_utc, post.created_a);
+                const tagColor = CATEGORY_TAG_COLORS[post.category] || 'bg-gray-50 text-gray-600';
                 return (
                   <Link key={post.reddit_id} href={`/posts/${post.reddit_id}`}>
-                    <div className="flex items-center gap-4 p-3 rounded-lg border border-border bg-card hover:border-foreground/20 transition-all cursor-pointer">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{post.category}</span>
-                          <span className="text-[10px] text-muted-foreground">r/{post.subreddit}</span>
-                          <ConsensusLabel consensus={post.consensus} />
-                        </div>
-                        <h3 className="text-sm font-medium truncate">{post.title}</h3>
-                      </div>
-                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground shrink-0">
+                    <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:shadow-sm hover:border-primary/20 transition-all cursor-pointer">
+                      <span className={cn('px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0', tagColor)}>
+                        {post.category}
+                      </span>
+                      <h3 className="text-sm font-medium truncate flex-1">{post.title}</h3>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
                         <span className="flex items-center gap-1"><ArrowUp className="w-3 h-3" />{post.score}</span>
                         <span>{postFreshness.label}</span>
                       </div>
@@ -328,39 +286,47 @@ export function DashboardPage({ posts }: DashboardPageProps) {
           </section>
         )}
 
-        {/* ===== ETF RANKING ===== */}
-        <section className="mb-10">
+        {/* ETF Ranking */}
+        <section className="mb-12">
+          <div className="flex items-center gap-2 mb-5">
+            <BarChart3 className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-bold" style={{ fontFamily: 'var(--font-serif), serif' }}>
+              ETF Rankings
+            </h2>
+          </div>
           <ETFComparison posts={etfPosts} onPostClick={handlePostClick} />
         </section>
 
-        {/* ===== ARCHIVE / POPULAR ANALYZED POSTS ===== */}
+        {/* Archive */}
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-bold" style={{ fontFamily: 'var(--font-serif), serif' }}>
-              Archive &middot; Most Upvoted
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-xl font-bold" style={{ fontFamily: 'var(--font-serif), serif' }}>
+              Archive &middot; Plus votes
             </h2>
-            <Link href="/posts" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
-              Browse all <ArrowRight className="w-3 h-3" />
+            <Link href="/posts" className="text-sm text-primary hover:text-primary/80 flex items-center gap-1 font-medium transition-colors">
+              Parcourir <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {archivePosts.slice(0, 6).map((post) => {
               const postFreshness = getPostFreshness(post.created_utc, post.created_a);
+              const tagColor = CATEGORY_TAG_COLORS[post.category] || 'bg-gray-50 text-gray-600';
               return (
                 <Link key={post.reddit_id} href={`/posts/${post.reddit_id}`}>
-                  <div className="bg-card border border-border rounded-lg p-4 hover:border-foreground/20 transition-all cursor-pointer">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{post.category}</span>
+                  <div className="bg-card border border-border rounded-xl p-5 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', tagColor)}>
+                        {post.category}
+                      </span>
                       <span className="text-[10px] text-muted-foreground">{postFreshness.label}</span>
-                      <ConsensusLabel consensus={post.consensus} />
                     </div>
-                    <h3 className="text-sm font-bold leading-snug mb-1.5 line-clamp-2" style={{ fontFamily: 'var(--font-serif), serif' }}>
+                    <h3 className="text-sm font-bold leading-snug mb-2 line-clamp-2" style={{ fontFamily: 'var(--font-serif), serif' }}>
                       {post.title}
                     </h3>
                     {post.summary && (
-                      <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{post.summary}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{post.summary}</p>
                     )}
-                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1"><ArrowUp className="w-3 h-3" />{post.score}</span>
                       <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" />{post.num_comments || 0}</span>
                       <span className="ml-auto">r/{post.subreddit}</span>

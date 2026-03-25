@@ -44,6 +44,8 @@
   --color-line: var(--line);
   --color-bullish: var(--bullish);
   --color-bearish: var(--bearish);
+  --color-indigo: var(--indigo);
+  --color-indigo-light: var(--indigo-light);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -55,83 +57,86 @@
 
 :root {
   --radius: 0.625rem;
-  /* Light mode - Warm newspaper-style */
-  --background: #f9f7f2;
-  --foreground: #1a1a1a;
+  /* Light mode - Ideabrowser-inspired clean white */
+  --background: #ffffff;
+  --foreground: #1a1a2e;
   --card: #ffffff;
-  --card-foreground: #1a1a1a;
+  --card-foreground: #1a1a2e;
   --popover: #ffffff;
-  --popover-foreground: #1a1a1a;
-  --primary: #1a1a1a;
-  --primary-foreground: #f9f7f2;
-  --secondary: #f0ede6;
-  --secondary-foreground: #1a1a1a;
-  --muted: #f0ede6;
-  --muted-foreground: #666666;
-  --accent: #f0ede6;
-  --accent-foreground: #1a1a1a;
+  --popover-foreground: #1a1a2e;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f7;
+  --secondary-foreground: #1a1a2e;
+  --muted: #f5f5f7;
+  --muted-foreground: #6b7280;
+  --accent: #f0f0ff;
+  --accent-foreground: #4f46e5;
   --destructive: #ef4444;
-  --border: rgba(26, 26, 26, 0.1);
-  --input: rgba(26, 26, 26, 0.1);
-  --ring: #1a1a1a;
-  --paper: #f9f7f2;
-  --ink: #1a1a1a;
-  --line: rgba(26, 26, 26, 0.1);
-  --bullish: #1e3a5f;
-  --bearish: #9f1239;
-  --chart-1: #1a1a1a;
-  --chart-2: #666666;
-  --chart-3: #999999;
-  --chart-4: #cccccc;
-  --chart-5: #e0dcd8;
-  --sidebar: #f9f7f2;
-  --sidebar-foreground: #1a1a1a;
-  --sidebar-primary: #1a1a1a;
-  --sidebar-primary-foreground: #f9f7f2;
-  --sidebar-accent: #f0ede6;
-  --sidebar-accent-foreground: #1a1a1a;
-  --sidebar-border: rgba(26, 26, 26, 0.1);
-  --sidebar-ring: #1a1a1a;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #4f46e5;
+  --paper: #ffffff;
+  --ink: #1a1a2e;
+  --line: #e5e7eb;
+  --bullish: #16a34a;
+  --bearish: #dc2626;
+  --indigo: #4f46e5;
+  --indigo-light: #818cf8;
+  --chart-1: #4f46e5;
+  --chart-2: #818cf8;
+  --chart-3: #a5b4fc;
+  --chart-4: #c7d2fe;
+  --chart-5: #e0e7ff;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1a1a2e;
+  --sidebar-primary: #4f46e5;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f0f0ff;
+  --sidebar-accent-foreground: #4f46e5;
+  --sidebar-border: #e5e7eb;
+  --sidebar-ring: #4f46e5;
 }
 
 .dark {
-  /* Dark mode - Soft gray */
-  --background: #1a1a1e;
-  --foreground: #d4d4d8;
-  --card: #232328;
-  --card-foreground: #d4d4d8;
-  --popover: #232328;
-  --popover-foreground: #d4d4d8;
-  --primary: #d4d4d8;
-  --primary-foreground: #1a1a1e;
-  --secondary: #2a2a2f;
-  --secondary-foreground: #d4d4d8;
-  --muted: #2a2a2f;
-  --muted-foreground: #8b8b92;
-  --accent: #2a2a2f;
-  --accent-foreground: #d4d4d8;
+  --background: #0f0f14;
+  --foreground: #e5e5ea;
+  --card: #1a1a22;
+  --card-foreground: #e5e5ea;
+  --popover: #1a1a22;
+  --popover-foreground: #e5e5ea;
+  --primary: #818cf8;
+  --primary-foreground: #0f0f14;
+  --secondary: #1e1e28;
+  --secondary-foreground: #e5e5ea;
+  --muted: #1e1e28;
+  --muted-foreground: #9ca3af;
+  --accent: #1e1e35;
+  --accent-foreground: #818cf8;
   --destructive: #ef4444;
   --border: rgba(255, 255, 255, 0.1);
   --input: rgba(255, 255, 255, 0.1);
-  --ring: #d4d4d8;
-  --paper: #1a1a1e;
-  --ink: #d4d4d8;
+  --ring: #818cf8;
+  --paper: #0f0f14;
+  --ink: #e5e5ea;
   --line: rgba(255, 255, 255, 0.1);
-  --bullish: #60a5fa;
+  --bullish: #4ade80;
   --bearish: #fb7185;
-  --chart-1: #d4d4d8;
-  --chart-2: #8b8b92;
-  --chart-3: #6b6b72;
-  --chart-4: #4a4a52;
-  --chart-5: #333338;
-  --sidebar: #1e1e22;
-  --sidebar-foreground: #d4d4d8;
-  --sidebar-primary: #d4d4d8;
-  --sidebar-primary-foreground: #1a1a1e;
-  --sidebar-accent: #2a2a2f;
-  --sidebar-accent-foreground: #d4d4d8;
+  --indigo: #818cf8;
+  --indigo-light: #a5b4fc;
+  --chart-1: #818cf8;
+  --chart-2: #a5b4fc;
+  --chart-3: #6366f1;
+  --chart-4: #4338ca;
+  --chart-5: #312e81;
+  --sidebar: #131318;
+  --sidebar-foreground: #e5e5ea;
+  --sidebar-primary: #818cf8;
+  --sidebar-primary-foreground: #0f0f14;
+  --sidebar-accent: #1e1e35;
+  --sidebar-accent-foreground: #818cf8;
   --sidebar-border: rgba(255, 255, 255, 0.1);
-  --sidebar-ring: #d4d4d8;
+  --sidebar-ring: #818cf8;
 }
 
 @layer base {
@@ -148,6 +153,21 @@
   h1, h2, h3, h4 {
     font-family: var(--font-serif), serif;
   }
+}
+
+/* Hero gradient text - ideabrowser style */
+.text-gradient {
+  background: linear-gradient(135deg, #6366f1 0%, #818cf8 50%, #4f46e5 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.dark .text-gradient {
+  background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 50%, #c7d2fe 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* Smooth scrolling */
@@ -180,8 +200,8 @@ textarea:focus-visible {
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -190,49 +210,42 @@ textarea:focus-visible {
 
 ::-webkit-scrollbar-thumb {
   background: var(--muted-foreground);
-  opacity: 0.3;
-  border-radius: 4px;
+  opacity: 0.2;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
-/* Editorial divider */
-.editorial-divider {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 2rem 0;
-}
-
-/* Newspaper column layout */
-.newspaper-columns {
-  column-count: 2;
-  column-gap: 2rem;
-  column-rule: 1px solid var(--border);
-}
-
-@media (max-width: 768px) {
-  .newspaper-columns {
-    column-count: 1;
-  }
+/* Hide Clerk dev mode badge & branding */
+div[data-clerk-id="clerk-development-mode"],
+div[class*="cl-internal"],
+.cl-footer,
+.cl-footerAction,
+a[href*="clerk.com"][target="_blank"],
+body > div[style*="position: fixed"][style*="bottom"] {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
 }
 
 /* View Transitions */
 ::view-transition-old(root) {
-  animation: page-out 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: page-out 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 ::view-transition-new(root) {
-  animation: page-in 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: page-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 @keyframes page-out {
-  from { opacity: 1; transform: scale(1); }
-  to { opacity: 0; transform: scale(0.98); }
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-8px); }
 }
 
 @keyframes page-in {
-  from { opacity: 0; transform: scale(1.02); }
-  to { opacity: 1; transform: scale(1); }
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }

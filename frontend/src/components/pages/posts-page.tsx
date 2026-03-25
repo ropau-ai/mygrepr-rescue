@@ -3,13 +3,34 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { cn, getPostLanguage, getDataFreshness, getPostFreshness, getConfidenceScore, filterByTimePeriod, type TimePeriod, formatDistanceToNow } from '@/lib/utils';
 import { Post, CATEGORIES } from '@/types/post';
-import { Search, X, MessageSquare, ArrowUp, Filter, LayoutGrid, List, Clock, Sparkles } from 'lucide-react';
+import { Search, X, MessageSquare, ArrowUp, SlidersHorizontal, Heart, Bookmark, ExternalLink } from 'lucide-react';
 import { getLastVisit, updateLastVisit, isNewSinceLastVisit, getReadPosts } from '@/lib/last-visit';
 import Link from 'next/link';
 
 interface PostsPageProps {
   posts: Post[];
 }
+
+type Tab = 'new' | 'trending' | 'saved';
+
+const CATEGORY_TAG_COLORS: Record<string, string> = {
+  'ETF': 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+  'Immobilier': 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+  'Crypto': 'bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400',
+  'Epargne': 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+  'Fiscalite': 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400',
+  'Actions': 'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400',
+  'Strategie': 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400',
+  'Milestone': 'bg-yellow-50 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400',
+  'Question': 'bg-slate-50 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400',
+  'Retour XP': 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400',
+  'Budget': 'bg-lime-50 text-lime-700 dark:bg-lime-500/10 dark:text-lime-400',
+  'Retraite': 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400',
+  'Credit': 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
+  'Carriere': 'bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400',
+  'Actualite': 'bg-zinc-50 text-zinc-600 dark:bg-zinc-500/10 dark:text-zinc-400',
+  'Autre': 'bg-gray-50 text-gray-600 dark:bg-gray-500/10 dark:text-gray-400',
+};
 
 export function PostsPage({ posts }: PostsPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -19,28 +40,21 @@ export function PostsPage({ posts }: PostsPageProps) {
   const [selectedTimePeriod, setSelectedTimePeriod] = useState<TimePeriod>('all');
   const [sortBy, setSortBy] = useState<'score' | 'confidence' | 'date'>('score');
   const [showFilters, setShowFilters] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [visibleCount, setVisibleCount] = useState(30);
+  const [activeTab, setActiveTab] = useState<Tab>('new');
+  const [visibleCount, setVisibleCount] = useState(20);
   const [readPosts, setReadPosts] = useState<Set<string>>(new Set());
 
-  const POSTS_PER_PAGE = 30;
+  const POSTS_PER_PAGE = 20;
 
   const lastVisit = useRef<number | null>(null);
-  const [lastVisitLabel, setLastVisitLabel] = useState<string>('');
 
   useEffect(() => {
     const lv = getLastVisit();
     lastVisit.current = lv;
-    if (lv) setLastVisitLabel(formatDistanceToNow(new Date(lv)));
     setReadPosts(getReadPosts());
     const timer = setTimeout(() => updateLastVisit(), 3000);
     return () => clearTimeout(timer);
   }, []);
-
-  const newPostCount = useMemo(() => {
-    if (!lastVisit.current) return 0;
-    return posts.filter(p => isNewSinceLastVisit(lastVisit.current, p.CreatedAt, p.created_utc)).length;
-  }, [posts]);
 
   const freshness = useMemo(() => getDataFreshness(posts), [posts]);
 
@@ -67,6 +81,7 @@ export function PostsPage({ posts }: PostsPageProps) {
       const matchesTime = filterByTimePeriod(p.created_utc, selectedTimePeriod, p.created_a);
       return matchesSearch && matchesCategory && matchesSubreddit && matchesLanguage && matchesTime;
     }).sort((a, b) => {
+      if (activeTab === 'trending') return (b.score || 0) - (a.score || 0);
       switch (sortBy) {
         case 'confidence': return getConfidenceScore(b).score - getConfidenceScore(a).score;
         case 'date': {
@@ -77,9 +92,9 @@ export function PostsPage({ posts }: PostsPageProps) {
         default: return (b.score || 0) - (a.score || 0);
       }
     });
-  }, [posts, searchQuery, selectedCategories, selectedSubreddits, selectedLanguage, selectedTimePeriod, sortBy]);
+  }, [posts, searchQuery, selectedCategories, selectedSubreddits, selectedLanguage, selectedTimePeriod, sortBy, activeTab]);
 
-  useEffect(() => { setVisibleCount(POSTS_PER_PAGE); }, [searchQuery, selectedCategories, selectedSubreddits, selectedLanguage, selectedTimePeriod]);
+  useEffect(() => { setVisibleCount(POSTS_PER_PAGE); }, [searchQuery, selectedCategories, selectedSubreddits, selectedLanguage, selectedTimePeriod, activeTab]);
 
   const visiblePosts = useMemo(() => filteredPosts.slice(0, visibleCount), [filteredPosts, visibleCount]);
   const hasMore = visibleCount < filteredPosts.length;
@@ -90,113 +105,122 @@ export function PostsPage({ posts }: PostsPageProps) {
   const hasFilters = selectedCategories.length > 0 || selectedSubreddits.length > 0 || selectedLanguage !== 'all' || selectedTimePeriod !== 'all' || searchQuery;
 
   return (
-    <main className="min-h-screen bg-background pt-6 pb-16">
-      <div className="max-w-[1440px] mx-auto px-8 py-10">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2" style={{ fontFamily: 'var(--font-serif), serif' }}>
-            Deep Dives
+    <main className="min-h-screen bg-background pb-16">
+      <div className="max-w-[1200px] mx-auto px-6 py-10">
+        {/* Hero Title */}
+        <div className="text-center mb-10">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-gradient mb-4" style={{ fontFamily: 'var(--font-serif), serif' }}>
+            Reddit Finance Intelligence
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Browse and explore financial advice from Reddit communities
+          <p className="text-base text-muted-foreground max-w-xl mx-auto">
+            Parcourez les meilleurs conseils financiers extraits et analyses par IA
           </p>
-          <div className={cn('flex items-center gap-2 mt-2 text-xs', freshness.hoursAgo < 24 ? 'text-green-500' : 'text-muted-foreground')}>
-            <Clock className="w-3 h-3" />
-            <span>{freshness.label}</span>
+        </div>
+
+        {/* Tabs */}
+        <div className="border-b border-border mb-6">
+          <div className="flex items-center gap-6">
+            {([
+              { key: 'new' as Tab, label: 'Nouveaux' },
+              { key: 'trending' as Tab, label: 'Tendances' },
+              { key: 'saved' as Tab, label: 'Sauvegardes' },
+            ]).map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={cn(
+                  'pb-3 text-sm font-medium transition-colors relative',
+                  activeTab === key
+                    ? 'text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {label}
+                {activeTab === key && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+                )}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* New posts banner */}
-        {newPostCount > 0 && (
-          <div className="mb-6 p-4 rounded-xl border border-border bg-card/40 flex items-center gap-3">
-            <Sparkles className="w-4 h-4 text-muted-foreground" />
-            <p className="text-sm font-medium">
-              {newPostCount} new post{newPostCount > 1 ? 's' : ''} since your last visit
-            </p>
-            {lastVisitLabel && <p className="text-xs text-muted-foreground">({lastVisitLabel})</p>}
-          </div>
-        )}
-
-        {/* Search + Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <div className="relative flex-1">
+        {/* Search + Filters row */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search posts..."
+              placeholder="Rechercher..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-lg border text-sm bg-card/40 border-border placeholder:text-muted-foreground"
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg border text-sm bg-background border-border placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             />
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={cn('flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm bg-card/40 border-border text-muted-foreground', showFilters && 'border-foreground text-foreground')}
-            >
-              <Filter className="w-4 h-4" />
-              Filters
-              {hasFilters && <span className="px-1.5 py-0.5 rounded-full bg-foreground text-background text-xs">{selectedCategories.length + selectedSubreddits.length + (searchQuery ? 1 : 0)}</span>}
-            </button>
-            {hasFilters && (
-              <button onClick={clearFilters} className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm text-red-500 bg-red-50 dark:bg-red-500/10">
-                <X className="w-4 h-4" />
+
+          <div className="flex items-center gap-2">
+            {(['all', 'fr', 'en'] as const).map((key) => (
+              <button
+                key={key}
+                onClick={() => setSelectedLanguage(key)}
+                className={cn(
+                  'px-3 py-2 rounded-lg text-xs font-medium border transition-colors',
+                  selectedLanguage === key
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background text-muted-foreground border-border hover:border-foreground/20'
+                )}
+              >
+                {key === 'all' ? 'Tous' : key.toUpperCase()}
               </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors',
+              showFilters ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:border-foreground/20'
             )}
-            <div className="flex rounded-lg overflow-hidden border border-border">
-              <button onClick={() => setViewMode('grid')} className={cn('p-2.5', viewMode === 'grid' ? 'bg-foreground text-background' : 'bg-card/40 text-muted-foreground')}>
-                <LayoutGrid className="w-4 h-4" />
-              </button>
-              <button onClick={() => setViewMode('list')} className={cn('p-2.5', viewMode === 'list' ? 'bg-foreground text-background' : 'bg-card/40 text-muted-foreground')}>
-                <List className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex rounded-lg overflow-hidden border border-border">
-              {(['all', 'fr', 'en'] as const).map((key) => (
-                <button
-                  key={key}
-                  onClick={() => setSelectedLanguage(key)}
-                  className={cn('px-3 py-2 text-xs font-medium', selectedLanguage === key ? 'bg-foreground text-background' : 'bg-card/40 text-muted-foreground')}
-                >
-                  {key === 'all' ? 'All' : key.toUpperCase()}
-                </button>
-              ))}
-            </div>
-            <div className="flex rounded-lg overflow-hidden border border-border">
-              {([
-                { value: 'all' as TimePeriod, label: 'All' },
-                { value: 'week' as TimePeriod, label: '7d' },
-                { value: 'month' as TimePeriod, label: '30d' },
-                { value: 'quarter' as TimePeriod, label: '3m' },
-              ]).map(({ value, label }) => (
-                <button
-                  key={value}
-                  onClick={() => setSelectedTimePeriod(value)}
-                  className={cn('px-3 py-2 text-xs font-medium', selectedTimePeriod === value ? 'bg-foreground text-background' : 'bg-card/40 text-muted-foreground')}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            Filtres
+          </button>
+
+          {hasFilters && (
+            <button onClick={clearFilters} className="p-2.5 rounded-lg text-red-500 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Trier :</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="text-sm border border-border rounded-lg px-3 py-2 bg-background text-foreground"
+            >
+              <option value="score">Plus votes</option>
+              <option value="date">Plus recents</option>
+              <option value="confidence">Fiabilite</option>
+            </select>
           </div>
         </div>
 
         {/* Filters Panel */}
         {showFilters && (
-          <div className="p-6 rounded-xl border bg-card/40 border-border mb-6">
+          <div className="p-6 rounded-xl border bg-card border-border mb-6 shadow-sm">
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wide mb-3 text-muted-foreground">Categories</h4>
+                <h4 className="text-xs font-semibold uppercase tracking-wide mb-3 text-primary">Categories</h4>
                 <div className="flex flex-wrap gap-2">
                   {categoryStats.map(({ category, count }) => (
                     <button
                       key={category}
                       onClick={() => toggleCategory(category)}
                       className={cn(
-                        'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-all',
+                        'flex items-center gap-2 px-3 py-1.5 rounded-full text-sm border transition-all',
                         selectedCategories.includes(category)
-                          ? 'bg-foreground/10 text-foreground border border-foreground/20'
-                          : 'bg-muted text-muted-foreground hover:bg-accent'
+                          ? 'bg-primary/10 text-primary border-primary/30'
+                          : 'bg-background text-muted-foreground border-border hover:border-foreground/20'
                       )}
                     >
                       {category}
@@ -206,17 +230,17 @@ export function PostsPage({ posts }: PostsPageProps) {
                 </div>
               </div>
               <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wide mb-3 text-muted-foreground">Sources</h4>
+                <h4 className="text-xs font-semibold uppercase tracking-wide mb-3 text-primary">Sources</h4>
                 <div className="flex flex-wrap gap-2">
                   {subredditStats.map(({ subreddit, count }) => (
                     <button
                       key={subreddit}
                       onClick={() => toggleSubreddit(subreddit)}
                       className={cn(
-                        'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-all',
+                        'flex items-center gap-2 px-3 py-1.5 rounded-full text-sm border transition-all',
                         selectedSubreddits.includes(subreddit)
-                          ? 'bg-foreground/10 text-foreground border border-foreground/20'
-                          : 'bg-muted text-muted-foreground hover:bg-accent'
+                          ? 'bg-primary/10 text-primary border-primary/30'
+                          : 'bg-background text-muted-foreground border-border hover:border-foreground/20'
                       )}
                     >
                       r/{subreddit}
@@ -226,100 +250,111 @@ export function PostsPage({ posts }: PostsPageProps) {
                 </div>
               </div>
             </div>
+            <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+              <button onClick={clearFilters} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Tout effacer
+              </button>
+              <button
+                onClick={() => setShowFilters(false)}
+                className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+              >
+                Afficher les resultats
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Sort + Results count */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Sort by:</span>
-            {([
-              { value: 'score' as const, label: 'Upvotes' },
-              { value: 'confidence' as const, label: 'Reliability' },
-              { value: 'date' as const, label: 'Date' },
-            ]).map(({ value, label }) => (
-              <button
-                key={value}
-                onClick={() => setSortBy(value)}
-                className={cn('px-3 py-1.5 rounded-md text-xs font-medium transition-colors', sortBy === value ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground hover:bg-accent')}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <p className="text-sm text-muted-foreground">{filteredPosts.length} results</p>
-        </div>
+        {/* Results count */}
+        <p className="text-sm text-muted-foreground mb-4">{filteredPosts.length} posts</p>
 
-        {/* Posts Grid/List */}
-        <div className={cn(viewMode === 'grid' ? 'grid sm:grid-cols-2 lg:grid-cols-3 gap-4' : 'flex flex-col gap-3')}>
+        {/* Posts List - Horizontal cards like ideabrowser */}
+        <div className="space-y-4">
           {visiblePosts.map((post) => {
             const isNew = isNewSinceLastVisit(lastVisit.current, post.CreatedAt, post.created_utc);
             const isRead = readPosts.has(post.reddit_id);
             const postFreshness = getPostFreshness(post.created_utc, post.created_a);
-
-            if (viewMode === 'list') {
-              return (
-                <Link key={post.Id} href={`/posts/${post.reddit_id}`}>
-                  <div className={cn(
-                    'rounded-xl border cursor-pointer transition-all bg-card/40 hover:shadow-md p-4 flex items-center gap-4 relative overflow-hidden',
-                    isNew && !isRead ? 'border-green-500/40' : 'border-border',
-                    isRead && 'opacity-70'
-                  )}>
-                    {isNew && !isRead && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-green-500 rounded-l-xl" />}
-                    <div className="px-2 py-0.5 rounded text-xs bg-muted text-muted-foreground">{post.category}</div>
-                    <h3 className="font-medium text-sm truncate flex-1">{post.title}</h3>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0">
-                      <span className="flex items-center gap-1"><ArrowUp className="w-3 h-3" />{post.score}</span>
-                      <span>r/{post.subreddit}</span>
-                      <span>{postFreshness.label}</span>
-                    </div>
-                  </div>
-                </Link>
-              );
-            }
+            const tagColor = CATEGORY_TAG_COLORS[post.category] || 'bg-gray-50 text-gray-600';
 
             return (
-              <Link key={post.Id} href={`/posts/${post.reddit_id}`}>
-                <div className={cn(
-                  'rounded-xl border cursor-pointer transition-all bg-card/40 hover:shadow-md hover:-translate-y-0.5 p-4 relative overflow-hidden',
-                  isNew && !isRead ? 'border-green-500/40' : 'border-border',
-                  isRead && 'opacity-70'
-                )}>
-                  {isNew && !isRead && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-green-500 rounded-l-xl" />}
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded text-xs bg-muted text-muted-foreground">{post.category}</span>
-                      {isNew && !isRead && <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-500/20 text-green-600 dark:text-green-400">NEW</span>}
-                      <span className="text-[10px] text-muted-foreground">{postFreshness.label}</span>
-                    </div>
+              <div
+                key={post.Id}
+                className={cn(
+                  'flex border border-border rounded-xl overflow-hidden bg-card hover:shadow-md transition-all',
+                  isNew && !isRead && 'ring-1 ring-primary/30'
+                )}
+              >
+                {/* Content */}
+                <Link href={`/posts/${post.reddit_id}`} className="flex-1 p-5 min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    {isNew && !isRead && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">NOUVEAU</span>
+                    )}
+                    <span className={cn('px-2.5 py-0.5 rounded-full text-xs font-medium', tagColor)}>
+                      {post.category}
+                    </span>
                     <span className="text-xs text-muted-foreground">r/{post.subreddit}</span>
+                    <span className="text-xs text-muted-foreground">{postFreshness.label}</span>
                   </div>
-                  <h3 className="font-medium text-sm mb-1.5 line-clamp-2" style={{ fontFamily: 'var(--font-serif), serif' }}>{post.title}</h3>
-                  {post.summary && <p className="text-xs text-muted-foreground line-clamp-3 mb-2">{post.summary}</p>}
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-3 text-muted-foreground">
-                      <span className="flex items-center gap-1"><ArrowUp className="w-3 h-3" />{post.score}</span>
-                      <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" />{post.num_comments}</span>
-                    </div>
-                    {(() => {
-                      const confidence = getConfidenceScore(post);
-                      return <span className={cn('font-medium', confidence.color)}>{confidence.score}%</span>;
-                    })()}
+
+                  <h3 className="text-lg font-bold leading-snug mb-2 text-foreground" style={{ fontFamily: 'var(--font-serif), serif' }}>
+                    {post.title}
+                  </h3>
+
+                  {post.summary && (
+                    <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 mb-3">
+                      {post.summary}
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1"><ArrowUp className="w-3.5 h-3.5" />{post.score}</span>
+                    <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{post.num_comments || 0}</span>
+                    {post.consensus && (
+                      <span className={cn(
+                        'font-medium',
+                        post.consensus.toLowerCase() === 'fort' && 'text-green-600 dark:text-green-400',
+                        post.consensus.toLowerCase() === 'moyen' && 'text-yellow-600 dark:text-yellow-400',
+                        post.consensus.toLowerCase() === 'faible' && 'text-orange-600 dark:text-orange-400',
+                        (post.consensus.toLowerCase() === 'divise' || post.consensus.toLowerCase() === 'divisé') && 'text-red-600 dark:text-red-400',
+                      )}>
+                        Consensus {post.consensus}
+                      </span>
+                    )}
                   </div>
+                </Link>
+
+                {/* Side actions - ideabrowser style */}
+                <div className="flex flex-col items-center justify-center gap-3 px-4 border-l border-border bg-muted/30">
+                  <button className="p-2 rounded-lg hover:bg-muted transition-colors group" title="Interested">
+                    <Heart className="w-4 h-4 text-muted-foreground group-hover:text-red-500 transition-colors" />
+                  </button>
+                  <button className="p-2 rounded-lg hover:bg-muted transition-colors group" title="Save">
+                    <Bookmark className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </button>
+                  <a
+                    href={post.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 rounded-lg hover:bg-muted transition-colors group"
+                    title="View on Reddit"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  </a>
                 </div>
-              </Link>
+              </div>
             );
           })}
         </div>
 
         {/* Load more */}
         {hasMore && (
-          <div className="flex justify-center mt-8">
+          <div className="flex justify-center mt-10">
             <button
               onClick={() => setVisibleCount((prev) => prev + POSTS_PER_PAGE)}
-              className="px-6 py-2.5 rounded-lg border text-sm transition-colors bg-card/40 border-border text-muted-foreground hover:border-foreground/50 hover:text-foreground"
+              className="px-8 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
             >
-              Show more ({filteredPosts.length - visibleCount} remaining)
+              Voir plus ({filteredPosts.length - visibleCount} restants)
             </button>
           </div>
         )}
