@@ -83,18 +83,17 @@ export function ConsensusBoard({ posts }: ConsensusBoardProps) {
   }, [clusters]);
 
   return (
-    <div className="min-h-screen pt-24 pb-24 px-4 sm:px-6 max-w-6xl mx-auto">
+    <div className="min-h-screen pt-16 pb-16 px-6 max-w-[1400px] mx-auto">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
+        className="mb-8 pt-10"
       >
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-3">
-          <BarChart3 className="h-7 w-7 text-primary" />
+        <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: 'var(--font-serif), serif' }}>
           Consensus Board
         </h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-xs text-muted-foreground mt-1">
           Where the community actually agrees — consensus across {stats.topics} topics.
         </p>
       </motion.div>
@@ -106,16 +105,16 @@ export function ConsensusBoard({ posts }: ConsensusBoardProps) {
         transition={{ delay: 0.1 }}
         className="flex flex-wrap gap-3 mb-6"
       >
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted text-sm">
-          <TrendingUp className="h-3.5 w-3.5" />
-          <span>{stats.total} posts analyzed</span>
+        <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-muted text-xs">
+          <TrendingUp className="h-3 w-3" />
+          <span>{stats.total} posts</span>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 text-green-700 dark:text-green-400 text-sm">
-          <CheckCircle2 className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-green-500/10 text-green-700 dark:text-green-400 text-xs">
+          <CheckCircle2 className="h-3 w-3" />
           <span>{stats.highConsensus} high consensus</span>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 text-red-700 dark:text-red-400 text-sm">
-          <AlertTriangle className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-red-500/10 text-red-700 dark:text-red-400 text-xs">
+          <AlertTriangle className="h-3 w-3" />
           <span>{stats.contested} contested</span>
         </div>
       </motion.div>
@@ -133,9 +132,9 @@ export function ConsensusBoard({ posts }: ConsensusBoardProps) {
             key={f}
             onClick={() => setFilter(f)}
             className={cn(
-              'px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors',
+              'px-3 py-1 rounded-md text-xs font-medium whitespace-nowrap transition-colors',
               filter === f
-                ? 'bg-primary text-primary-foreground'
+                ? 'bg-foreground text-background'
                 : 'bg-muted text-muted-foreground hover:bg-accent'
             )}
           >
