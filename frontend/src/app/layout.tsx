@@ -28,6 +28,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning className="scroll-smooth">
+      <head>
+        <script defer src="https://unami.jelilahounou.com/script.js" data-website-id="1a717585-f7ae-4f62-80f1-b010d811d1fe"></script>
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
