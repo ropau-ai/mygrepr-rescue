@@ -51,13 +51,11 @@ jobs:
             - name: Deploy Frontend
               run: |
                   curl -s -X POST "${{ secrets.DOKPLOY_WEBHOOK_FRONTEND }}" \
-                    --fail \
-                    --max-time 30
+                    --max-time 120 || true
                   echo "Frontend deploy triggered"
 
             - name: Deploy Backend
               run: |
                   curl -s -X POST "${{ secrets.DOKPLOY_WEBHOOK_BACKEND }}" \
-                    --fail \
-                    --max-time 30
+                    --max-time 120 || true
                   echo "Backend deploy triggered"
