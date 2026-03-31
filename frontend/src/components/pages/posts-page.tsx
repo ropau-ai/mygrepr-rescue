@@ -1,36 +1,18 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
-import { cn, getPostLanguage, getDataFreshness, getPostFreshness, getConfidenceScore, filterByTimePeriod, type TimePeriod, formatDistanceToNow } from '@/lib/utils';
+import { useState, useMemo, useEffect } from 'react';
+import { cn, getPostLanguage, getPostFreshness, getConfidenceScore, filterByTimePeriod, type TimePeriod } from '@/lib/utils';
 import { Post, CATEGORIES } from '@/types/post';
 import { Search, X, MessageSquare, ArrowUp, SlidersHorizontal, Heart, Bookmark, ExternalLink } from 'lucide-react';
 import { getLastVisit, updateLastVisit, isNewSinceLastVisit, getReadPosts } from '@/lib/last-visit';
 import Link from 'next/link';
+import { getCategoryColor } from '@/lib/design-tokens';
 
 interface PostsPageProps {
   posts: Post[];
 }
 
 type Tab = 'new' | 'trending' | 'saved';
-
-const CATEGORY_TAG_COLORS: Record<string, string> = {
-  'ETF': 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
-  'Immobilier': 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
-  'Crypto': 'bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400',
-  'Epargne': 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
-  'Fiscalite': 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400',
-  'Actions': 'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400',
-  'Strategie': 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400',
-  'Milestone': 'bg-yellow-50 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400',
-  'Question': 'bg-slate-50 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400',
-  'Retour XP': 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400',
-  'Budget': 'bg-lime-50 text-lime-700 dark:bg-lime-500/10 dark:text-lime-400',
-  'Retraite': 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400',
-  'Credit': 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
-  'Carriere': 'bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400',
-  'Actualite': 'bg-zinc-50 text-zinc-600 dark:bg-zinc-500/10 dark:text-zinc-400',
-  'Autre': 'bg-gray-50 text-gray-600 dark:bg-gray-500/10 dark:text-gray-400',
-};
 
 export function PostsPage({ posts }: PostsPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,21 +24,16 @@ export function PostsPage({ posts }: PostsPageProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('new');
   const [visibleCount, setVisibleCount] = useState(20);
-  const [readPosts, setReadPosts] = useState<Set<string>>(new Set());
+  const [readPosts] = useState(() => getReadPosts());
 
   const POSTS_PER_PAGE = 20;
 
-  const lastVisit = useRef<number | null>(null);
+  const [lastVisit] = useState(() => getLastVisit());
 
   useEffect(() => {
-    const lv = getLastVisit();
-    lastVisit.current = lv;
-    setReadPosts(getReadPosts());
     const timer = setTimeout(() => updateLastVisit(), 3000);
     return () => clearTimeout(timer);
   }, []);
-
-  const freshness = useMemo(() => getDataFreshness(posts), [posts]);
 
   const categoryStats = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -94,7 +71,13 @@ export function PostsPage({ posts }: PostsPageProps) {
     });
   }, [posts, searchQuery, selectedCategories, selectedSubreddits, selectedLanguage, selectedTimePeriod, sortBy, activeTab]);
 
-  useEffect(() => { setVisibleCount(POSTS_PER_PAGE); }, [searchQuery, selectedCategories, selectedSubreddits, selectedLanguage, selectedTimePeriod, activeTab]);
+  // Reset pagination when filters change — intentional cascading update
+  const filterKey = `${searchQuery}|${selectedCategories}|${selectedSubreddits}|${selectedLanguage}|${selectedTimePeriod}|${activeTab}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
+    setVisibleCount(POSTS_PER_PAGE);
+  }
 
   const visiblePosts = useMemo(() => filteredPosts.slice(0, visibleCount), [filteredPosts, visibleCount]);
   const hasMore = visibleCount < filteredPosts.length;
@@ -109,8 +92,8 @@ export function PostsPage({ posts }: PostsPageProps) {
       <div className="max-w-[1200px] mx-auto px-6 py-10">
         {/* Hero Title */}
         <div className="text-center mb-10">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-gradient mb-4" style={{ fontFamily: 'var(--font-serif), serif' }}>
-            Reddit Finance Intelligence
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-gradient mb-4">
+            Intelligence Finance Reddit
           </h1>
           <p className="text-base text-muted-foreground max-w-xl mx-auto">
             Parcourez les meilleurs conseils financiers extraits et analyses par IA
@@ -264,16 +247,33 @@ export function PostsPage({ posts }: PostsPageProps) {
           </div>
         )}
 
-        {/* Results count */}
-        <p className="text-sm text-muted-foreground mb-4">{filteredPosts.length} posts</p>
+        {/* Quick category chips */}
+        <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
+          <span className="text-xs text-muted-foreground shrink-0">{filteredPosts.length} posts</span>
+          <span className="text-border">|</span>
+          {categoryStats.slice(0, 8).map(({ category }) => (
+            <button
+              key={category}
+              onClick={() => toggleCategory(category)}
+              className={cn(
+                'px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors shrink-0',
+                selectedCategories.includes(category)
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-accent'
+              )}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
 
         {/* Posts List - Horizontal cards like ideabrowser */}
         <div className="space-y-4">
           {visiblePosts.map((post) => {
-            const isNew = isNewSinceLastVisit(lastVisit.current, post.CreatedAt, post.created_utc);
+            const isNew = isNewSinceLastVisit(lastVisit, post.CreatedAt, post.created_utc);
             const isRead = readPosts.has(post.reddit_id);
             const postFreshness = getPostFreshness(post.created_utc, post.created_a);
-            const tagColor = CATEGORY_TAG_COLORS[post.category] || 'bg-gray-50 text-gray-600';
+            const tagColor = getCategoryColor(post.category);
 
             return (
               <div
@@ -296,7 +296,7 @@ export function PostsPage({ posts }: PostsPageProps) {
                     <span className="text-xs text-muted-foreground">{postFreshness.label}</span>
                   </div>
 
-                  <h3 className="text-lg font-bold leading-snug mb-2 text-foreground" style={{ fontFamily: 'var(--font-serif), serif' }}>
+                  <h3 className="text-lg font-bold leading-snug mb-2 text-foreground">
                     {post.title}
                   </h3>
 
@@ -336,7 +336,7 @@ export function PostsPage({ posts }: PostsPageProps) {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-2 rounded-lg hover:bg-muted transition-colors group"
-                    title="View on Reddit"
+                    title="Voir sur Reddit"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />

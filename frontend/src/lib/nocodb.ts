@@ -34,8 +34,7 @@ export async function fetchPosts(): Promise<Post[]> {
       });
 
       if (!response.ok) {
-        console.error('Failed to fetch posts:', response.status);
-        break;
+        throw new Error(`NocoDB fetch failed: ${response.status}`);
       }
 
       const data = await response.json();
@@ -53,8 +52,8 @@ export async function fetchPosts(): Promise<Post[]> {
       offset += limit;
     }
   } catch (error) {
-    console.error('Database fetch error');
-    return [];
+    console.error('Database fetch error:', error);
+    throw error;
   }
 
   return allPosts;
@@ -63,35 +62,6 @@ export async function fetchPosts(): Promise<Post[]> {
 export function getTagsFromPost(post: Post): string[] {
   if (!post.tags) return [];
   return post.tags.split(',').map(tag => tag.trim()).filter(Boolean);
-}
-
-export function getTrendingTags(posts: Post[]): { tag: string; count: number }[] {
-  const tagCounts: Record<string, number> = {};
-
-  posts.forEach(post => {
-    const tags = getTagsFromPost(post);
-    tags.forEach(tag => {
-      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-    });
-  });
-
-  return Object.entries(tagCounts)
-    .map(([tag, count]) => ({ tag, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
-}
-
-export function getCategoryStats(posts: Post[]): { category: string; count: number }[] {
-  const categoryCounts: Record<string, number> = {};
-
-  posts.forEach(post => {
-    const category = post.category || 'Autre';
-    categoryCounts[category] = (categoryCounts[category] || 0) + 1;
-  });
-
-  return Object.entries(categoryCounts)
-    .map(([category, count]) => ({ category, count }))
-    .sort((a, b) => b.count - a.count);
 }
 
 // ETF Database with ISIN codes and details
@@ -266,12 +236,6 @@ export const ETF_DATABASE: ETFInfo[] = [
   },
 ];
 
-// Extract keywords for searching
-const ETF_SEARCH_TERMS = ETF_DATABASE.flatMap(etf => [
-  etf.ticker.toLowerCase(),
-  ...etf.keywords,
-]);
-
 export interface ETFInsight {
   ticker: string;
   name: string;
@@ -338,7 +302,3 @@ export function getETFInsights(posts: Post[]): ETFInsight[] {
     .sort((a, b) => b.mentions - a.mentions);
 }
 
-// Get all ETFs for reference
-export function getAllETFs(): ETFInfo[] {
-  return ETF_DATABASE;
-}

@@ -159,9 +159,9 @@ def run_scheduler(dry_run: bool = False):
         logger.info(f"\n🤖 Processing {len(all_new_posts)} posts with AI...")
         processed_posts = process_posts(all_new_posts, delay_between_calls=AI_DELAY)
 
-        # Push to NocoDB
+        # Push to NocoDB (pass existing_ids to avoid redundant query)
         logger.info(f"\n📤 Pushing to NocoDB...")
-        stats = push_posts(processed_posts)
+        stats = push_posts(processed_posts, existing_ids=existing_ids)
         logger.info(f"  Pushed: {stats['pushed']}, Skipped: {stats['skipped']}, Errors: {stats['errors']}")
 
     # Update and save progress
@@ -300,13 +300,19 @@ def run_loop(target_hour: int = 6):
         # Run immediately on first start, then wait
         if load_progress()["last_run"] != now.strftime("%Y-%m-%d"):
             logger.info("Running scheduler now...")
-            run_scheduler()
+            try:
+                run_scheduler()
+            except Exception as e:
+                logger.error(f"Scheduler run failed: {e}", exc_info=True)
 
         # Sleep until next run (check every hour in case of drift)
         while datetime.now() < next_run:
             time.sleep(3600)  # Sleep 1 hour
 
-        run_scheduler()
+        try:
+            run_scheduler()
+        except Exception as e:
+            logger.error(f"Scheduler run failed: {e}", exc_info=True)
 
 
 if __name__ == "__main__":

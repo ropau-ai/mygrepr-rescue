@@ -2,19 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Public routes — accessible without login
-const isPublicRoute = createRouteMatcher([
-  '/',
-  '/landing(.*)',
-  '/login(.*)',
-  '/sign-up(.*)',
-  '/maintenance(.*)',
-  '/about(.*)',
-  '/posts(.*)',
-  '/consensus(.*)',
-  '/settings(.*)',
-  '/api/posts(.*)',
-]);
+const isProtectedRoute = createRouteMatcher(['/settings(.*)']);
 
 export default clerkMiddleware(async (auth, request: NextRequest) => {
   // Maintenance mode
@@ -27,8 +15,8 @@ export default clerkMiddleware(async (auth, request: NextRequest) => {
     }
   }
 
-  // Protect non-public routes
-  if (!isPublicRoute(request)) {
+  // Protect routes that require auth
+  if (isProtectedRoute(request)) {
     await auth.protect();
   }
 });

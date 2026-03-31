@@ -14,5 +14,8 @@ COPY scheduler.py .
 RUN adduser --disabled-password --gecos '' appuser
 USER appuser
 
+HEALTHCHECK --interval=60s --timeout=10s --retries=3 \
+  CMD python -c "import os; os.path.exists('scheduler_progress.json')" || exit 1
+
 # Run scheduler in loop mode (daily at 6:00)
 CMD ["python", "scheduler.py"]

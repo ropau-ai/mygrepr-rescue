@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { cn, getDataFreshness, getPostFreshness, getPostLanguage, formatDistanceToNow } from '@/lib/utils';
 import { Post, CONSENSUS_COLORS } from '@/types/post';
 import { getETFInsights } from '@/lib/nocodb';
@@ -8,6 +8,7 @@ import { TrendingUp, ArrowRight, Clock, ArrowUp, MessageSquare, ChevronLeft, Che
 import { ETFComparison } from '@/components/dashboard/etf-comparison';
 import { getLastVisit, updateLastVisit, isNewSinceLastVisit } from '@/lib/last-visit';
 import Link from 'next/link';
+import { getCategoryColor } from '@/lib/design-tokens';
 
 interface DashboardPageProps {
   posts: Post[];
@@ -20,27 +21,17 @@ function getPostDate(post: Post): Date | null {
   return null;
 }
 
-const CATEGORY_TAG_COLORS: Record<string, string> = {
-  'ETF': 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
-  'Immobilier': 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
-  'Crypto': 'bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400',
-  'Epargne': 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
-  'Fiscalite': 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400',
-  'Actions': 'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400',
-  'Strategie': 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400',
-};
-
 export function DashboardPage({ posts }: DashboardPageProps) {
   const [langFilter, setLangFilter] = useState<'all' | 'fr' | 'en'>('fr');
   const [topNewsIndex, setTopNewsIndex] = useState(0);
 
-  const lastVisit = useRef<number | null>(null);
-  const [lastVisitLabel, setLastVisitLabel] = useState<string>('');
+  const [lastVisit] = useState(() => getLastVisit());
+  const [lastVisitLabel] = useState(() => {
+    const lv = getLastVisit();
+    return lv ? formatDistanceToNow(new Date(lv)) : '';
+  });
 
   useEffect(() => {
-    const lv = getLastVisit();
-    lastVisit.current = lv;
-    if (lv) setLastVisitLabel(formatDistanceToNow(new Date(lv)));
     const timer = setTimeout(() => updateLastVisit(), 3000);
     return () => clearTimeout(timer);
   }, []);
@@ -48,13 +39,13 @@ export function DashboardPage({ posts }: DashboardPageProps) {
   const freshness = useMemo(() => getDataFreshness(posts), [posts]);
 
   const newPostCount = useMemo(() => {
-    if (!lastVisit.current) return 0;
-    return posts.filter(p => isNewSinceLastVisit(lastVisit.current, p.CreatedAt, p.created_utc)).length;
-  }, [posts]);
+    if (!lastVisit) return 0;
+    return posts.filter(p => isNewSinceLastVisit(lastVisit, p.CreatedAt, p.created_utc)).length;
+  }, [posts, lastVisit]);
 
+  const [renderTime] = useState(() => Date.now());
   const { recentPosts, archivePosts } = useMemo(() => {
-    const now = Date.now();
-    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const sevenDaysAgo = renderTime - 7 * 24 * 60 * 60 * 1000;
     const recent: Post[] = [];
     const archive: Post[] = [];
 
@@ -75,7 +66,7 @@ export function DashboardPage({ posts }: DashboardPageProps) {
       recentPosts: recent.sort((a, b) => (b.score || 0) - (a.score || 0)),
       archivePosts: archive.sort((a, b) => (b.score || 0) - (a.score || 0)),
     };
-  }, [posts, langFilter]);
+  }, [posts, langFilter, renderTime]);
 
   const topNewsPairs = useMemo(() => {
     const topPosts = recentPosts.length >= 4
@@ -111,30 +102,48 @@ export function DashboardPage({ posts }: DashboardPageProps) {
   }, [posts]);
 
   const today = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  const handlePostClick = () => {};
 
   return (
     <main className="min-h-screen bg-background pb-16">
       <div className="max-w-[1200px] mx-auto px-6 py-10">
 
         {/* Hero */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-gradient mb-4" style={{ fontFamily: 'var(--font-serif), serif' }}>
-            Insight du Jour
-          </h1>
-          <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
-            <Link href="/posts" className="flex items-center gap-1 hover:text-foreground transition-colors">
-              <ChevronLeft className="w-4 h-4" /> Precedent
-            </Link>
-            <span className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5" /> {today}
-            </span>
-            <button
-              onClick={() => setTopNewsIndex(prev => (prev + 1) % Math.max(topNewsPairs.length, 1))}
-              className="flex items-center gap-1 hover:text-foreground transition-colors"
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1">
+                Tableau de bord
+              </h1>
+              <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" /> {today}
+              </p>
+            </div>
+            <Link
+              href="/posts"
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity flex items-center gap-1.5"
             >
-              Suivant <ChevronRight className="w-4 h-4" />
-            </button>
+              Explorer <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          {/* Stats cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-4 rounded-xl border border-border bg-card">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Total posts</p>
+              <p className="text-2xl font-bold">{stats.totalPosts}</p>
+            </div>
+            <div className="p-4 rounded-xl border border-border bg-card">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">ETF mentions</p>
+              <p className="text-2xl font-bold">{stats.etfMentions}</p>
+            </div>
+            <div className="p-4 rounded-xl border border-border bg-card">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Recents (7j)</p>
+              <p className="text-2xl font-bold">{recentPosts.length}</p>
+            </div>
+            <div className="p-4 rounded-xl border border-border bg-card">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Fraicheur</p>
+              <p className="text-sm font-bold mt-1">{freshness.label}</p>
+            </div>
           </div>
         </div>
 
@@ -154,36 +163,28 @@ export function DashboardPage({ posts }: DashboardPageProps) {
           </div>
         )}
 
-        {/* Language filter + stats */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            {(['all', 'fr', 'en'] as const).map((key) => (
-              <button
-                key={key}
-                onClick={() => setLangFilter(key)}
-                className={cn(
-                  'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
-                  langFilter === key
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-background text-muted-foreground border-border hover:border-foreground/20'
-                )}
-              >
-                {key === 'all' ? 'Tous' : key.toUpperCase()}
-              </button>
-            ))}
-            <span className="text-xs text-muted-foreground flex items-center gap-1 ml-2">
-              <Clock className="w-3 h-3" /> {freshness.label}
-            </span>
-          </div>
-          <span className="text-xs text-muted-foreground">
-            {stats.totalPosts} posts &middot; {stats.etfMentions} ETF mentions
-          </span>
+        {/* Language filter */}
+        <div className="flex items-center gap-3 mb-6">
+          {(['all', 'fr', 'en'] as const).map((key) => (
+            <button
+              key={key}
+              onClick={() => setLangFilter(key)}
+              className={cn(
+                'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                langFilter === key
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background text-muted-foreground border-border hover:border-foreground/20'
+              )}
+            >
+              {key === 'all' ? 'Tous' : key.toUpperCase()}
+            </button>
+          ))}
         </div>
 
         {/* Top News Featured Cards */}
         <section className="mb-12">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-xl font-bold flex items-center gap-2" style={{ fontFamily: 'var(--font-serif), serif' }}>
+            <h2 className="text-xl font-bold flex items-center gap-2">
               <Newspaper className="w-5 h-5 text-primary" />
               Top News
             </h2>
@@ -209,7 +210,7 @@ export function DashboardPage({ posts }: DashboardPageProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {currentTopNews.map((post) => {
               const postFreshness = getPostFreshness(post.created_utc, post.created_a);
-              const tagColor = CATEGORY_TAG_COLORS[post.category] || 'bg-gray-50 text-gray-600';
+              const tagColor = getCategoryColor(post.category);
               const consensus = post.consensus?.toLowerCase();
               const consensusInfo = consensus ? CONSENSUS_COLORS[consensus] : null;
 
@@ -223,7 +224,7 @@ export function DashboardPage({ posts }: DashboardPageProps) {
                       <span className="text-xs text-muted-foreground">r/{post.subreddit}</span>
                       <span className="text-xs text-muted-foreground ml-auto">{postFreshness.label}</span>
                     </div>
-                    <h3 className="text-lg font-bold leading-snug mb-3 flex-1" style={{ fontFamily: 'var(--font-serif), serif' }}>
+                    <h3 className="text-lg font-bold leading-snug mb-3 flex-1">
                       {post.title}
                     </h3>
                     {post.summary && (
@@ -234,12 +235,19 @@ export function DashboardPage({ posts }: DashboardPageProps) {
                       <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{post.num_comments || 0}</span>
                       {consensusInfo && (
                         <span className={cn(
-                          'ml-auto font-medium',
+                          'ml-auto font-medium flex items-center gap-1',
                           consensus === 'fort' && 'text-green-600',
                           consensus === 'moyen' && 'text-yellow-600',
                           consensus === 'faible' && 'text-orange-600',
                           (consensus === 'divise' || consensus === 'divisé') && 'text-red-600',
                         )}>
+                          <span className={cn(
+                            'w-2 h-2 rounded-full',
+                            consensus === 'fort' && 'bg-green-500',
+                            consensus === 'moyen' && 'bg-yellow-500',
+                            consensus === 'faible' && 'bg-orange-500',
+                            (consensus === 'divise' || consensus === 'divisé') && 'bg-red-500',
+                          )} aria-hidden="true" />
                           {consensusInfo.label}
                         </span>
                       )}
@@ -255,7 +263,7 @@ export function DashboardPage({ posts }: DashboardPageProps) {
         {recentPosts.length > 0 && (
           <section className="mb-12">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-bold flex items-center gap-2" style={{ fontFamily: 'var(--font-serif), serif' }}>
+              <h2 className="text-xl font-bold flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-primary" />
                 Recents ({recentPosts.length})
               </h2>
@@ -266,7 +274,7 @@ export function DashboardPage({ posts }: DashboardPageProps) {
             <div className="space-y-2">
               {recentPosts.slice(0, 5).map((post) => {
                 const postFreshness = getPostFreshness(post.created_utc, post.created_a);
-                const tagColor = CATEGORY_TAG_COLORS[post.category] || 'bg-gray-50 text-gray-600';
+                const tagColor = getCategoryColor(post.category);
                 return (
                   <Link key={post.reddit_id} href={`/posts/${post.reddit_id}`}>
                     <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:shadow-sm hover:border-primary/20 transition-all cursor-pointer">
@@ -290,17 +298,17 @@ export function DashboardPage({ posts }: DashboardPageProps) {
         <section className="mb-12">
           <div className="flex items-center gap-2 mb-5">
             <BarChart3 className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-bold" style={{ fontFamily: 'var(--font-serif), serif' }}>
+            <h2 className="text-xl font-bold">
               ETF Rankings
             </h2>
           </div>
-          <ETFComparison posts={etfPosts} onPostClick={handlePostClick} />
+          <ETFComparison posts={etfPosts} onPostClick={() => {}} />
         </section>
 
         {/* Archive */}
         <section>
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-xl font-bold" style={{ fontFamily: 'var(--font-serif), serif' }}>
+            <h2 className="text-xl font-bold">
               Archive &middot; Plus votes
             </h2>
             <Link href="/posts" className="text-sm text-primary hover:text-primary/80 flex items-center gap-1 font-medium transition-colors">
@@ -310,7 +318,7 @@ export function DashboardPage({ posts }: DashboardPageProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {archivePosts.slice(0, 6).map((post) => {
               const postFreshness = getPostFreshness(post.created_utc, post.created_a);
-              const tagColor = CATEGORY_TAG_COLORS[post.category] || 'bg-gray-50 text-gray-600';
+              const tagColor = getCategoryColor(post.category);
               return (
                 <Link key={post.reddit_id} href={`/posts/${post.reddit_id}`}>
                   <div className="bg-card border border-border rounded-xl p-5 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer">
@@ -320,7 +328,7 @@ export function DashboardPage({ posts }: DashboardPageProps) {
                       </span>
                       <span className="text-[10px] text-muted-foreground">{postFreshness.label}</span>
                     </div>
-                    <h3 className="text-sm font-bold leading-snug mb-2 line-clamp-2" style={{ fontFamily: 'var(--font-serif), serif' }}>
+                    <h3 className="text-sm font-bold leading-snug mb-2 line-clamp-2">
                       {post.title}
                     </h3>
                     {post.summary && (

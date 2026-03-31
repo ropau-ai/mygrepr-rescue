@@ -1,6 +1,6 @@
 'use client';
 
-import { Post, CATEGORY_COLORS } from '@/types/post';
+import { Post } from '@/types/post';
 import { Badge } from '@/components/ui/badge';
 import { ArrowUp, MessageSquare, ExternalLink } from 'lucide-react';
 
