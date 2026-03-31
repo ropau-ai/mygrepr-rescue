@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { Post, CATEGORY_COLORS, CONSENSUS_COLORS, parseExtractedData, formatAmount } from '@/types/post';
+import { Post, CONSENSUS_COLORS, parseExtractedData, formatAmount } from '@/types/post';
 import { getTagsFromPost } from '@/lib/nocodb';
 import { isPostFavorite, togglePostFavorite } from '@/lib/favorites';
 import { ExternalLink, ChevronLeft, ChevronRight, Heart } from 'lucide-react';

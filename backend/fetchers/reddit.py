@@ -136,12 +136,22 @@ def _fetch_pullpush(subreddit: str, time_filter: str, limit: int, sort: str, min
             params["sort"] = "desc"
             params["sort_type"] = "score"
 
-        try:
-            response = requests.get(url, params=params, timeout=30)
-            response.raise_for_status()
-            data = response.json()
-        except requests.RequestException as e:
-            logger.error(f"PullPush error fetching r/{subreddit}: {e}")
+        data = None
+        for attempt in range(3):
+            try:
+                response = requests.get(url, params=params, timeout=30)
+                response.raise_for_status()
+                data = response.json()
+                break
+            except requests.RequestException as e:
+                if attempt < 2:
+                    wait = 2 ** (attempt + 1)
+                    logger.warning(f"PullPush attempt {attempt+1}/3 failed for r/{subreddit}: {e}. Retrying in {wait}s...")
+                    time.sleep(wait)
+                else:
+                    logger.error(f"PullPush failed after 3 attempts for r/{subreddit}: {e}")
+
+        if data is None:
             break
 
         posts = data.get("data", [])

@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Post } from '@/types/post';
 import { ChevronDown, MessageSquare, ArrowUp, Lightbulb } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -107,7 +107,7 @@ export function ConsensusCluster({ cluster, isExpanded, onToggle, categoryColor 
       {/* Expanded content */}
       <AnimatePresence>
         {isExpanded && (
-          <motion.div
+          <m.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -168,7 +168,7 @@ export function ConsensusCluster({ cluster, isExpanded, onToggle, categoryColor 
                 </div>
               )}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

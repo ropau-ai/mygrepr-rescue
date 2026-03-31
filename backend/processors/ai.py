@@ -10,7 +10,7 @@ from backend.config import (
     AI_PROVIDER,
     GROQ_API_KEY, GROQ_MODEL,
     DEEPSEEK_API_KEY, DEEPSEEK_MODEL, DEEPSEEK_BASE_URL,
-    CATEGORIES, CATEGORY_DESCRIPTIONS
+    CATEGORIES, CATEGORY_DESCRIPTIONS, logger
 )
 
 
@@ -203,26 +203,25 @@ def extract_financial_data(text: str) -> dict:
 def retry_with_backoff(func, max_retries=5, base_delay=2):
     """
     Retry wrapper with exponential backoff.
-    Handles 429 rate limits by waiting longer.
+    Catches rate limit errors from Groq/OpenAI SDKs properly.
     """
+    from groq import RateLimitError as GroqRateLimitError
+    from openai import RateLimitError as OpenAIRateLimitError
+
     for attempt in range(max_retries):
         try:
             return func()
-        except Exception as e:
-            error_str = str(e)
-            is_rate_limit = "429" in error_str or "rate" in error_str.lower()
-
+        except (GroqRateLimitError, OpenAIRateLimitError) as e:
             if attempt == max_retries - 1:
                 raise
-
-            # Longer wait for rate limits
-            if is_rate_limit:
-                delay = base_delay * (3 ** attempt)  # More aggressive backoff for rate limits
-                print(f"  Rate limit hit. Waiting {delay}s before retry {attempt + 1}/{max_retries}")
-            else:
-                delay = base_delay * (2 ** attempt)
-                print(f"  Retry {attempt + 1}/{max_retries} after {delay}s: {e}")
-
+            delay = base_delay * (3 ** attempt)
+            logger.warning(f"Rate limit hit. Waiting {delay}s before retry {attempt + 1}/{max_retries}")
+            time.sleep(delay)
+        except Exception as e:
+            if attempt == max_retries - 1:
+                raise
+            delay = base_delay * (2 ** attempt)
+            logger.warning(f"Retry {attempt + 1}/{max_retries} after {delay}s: {e}")
             time.sleep(delay)
 
 
@@ -238,7 +237,7 @@ def get_ai_client():
     if AI_PROVIDER == "deepseek":
         if _deepseek_client is None:
             if not DEEPSEEK_API_KEY:
-                print("Warning: DEEPSEEK_API_KEY not set")
+                logger.warning("DEEPSEEK_API_KEY not set")
                 return None, None, None
             _deepseek_client = OpenAI(
                 api_key=DEEPSEEK_API_KEY,
@@ -249,7 +248,7 @@ def get_ai_client():
         # Default: Groq
         if _groq_client is None:
             if not GROQ_API_KEY:
-                print("Warning: GROQ_API_KEY not set")
+                logger.warning("GROQ_API_KEY not set")
                 return None, None, None
             _groq_client = Groq(api_key=GROQ_API_KEY)
         return _groq_client, GROQ_MODEL, "groq"
@@ -262,10 +261,10 @@ def categorize_and_summarize(post: dict) -> dict:
     """
     client, model, provider = get_ai_client()
     if not client:
-        print(f"Warning: AI client not configured, skipping AI processing")
+        logger.warning("AI client not configured, skipping AI processing")
         return post
 
-    print(f"  Using {provider} ({model})")
+    logger.info(f"Using {provider} ({model})")
 
     title = post.get("title", "")
     content = post.get("selftext", "")[:1500]
@@ -343,7 +342,7 @@ Réponds UNIQUEMENT avec le JSON, pas de texte avant ou après."""
         post["extracted_data"] = extracted
 
     except json.JSONDecodeError as e:
-        print(f"Error parsing AI response: {e}")
+        logger.error(f"Error parsing AI response: {e}")
         post["category"] = "Autre"
         post["tags"] = []
         post["summary"] = ""
@@ -351,7 +350,7 @@ Réponds UNIQUEMENT avec le JSON, pas de texte avant ou après."""
         full_text = f"{post.get('title', '')} {post.get('selftext', '')} {post.get('comment_body', '')}"
         post["extracted_data"] = extract_financial_data(full_text)
     except Exception as e:
-        print(f"Error calling Groq API: {e}")
+        logger.error(f"Error calling AI API: {e}")
         post["category"] = "Autre"
         post["tags"] = []
         post["summary"] = ""
@@ -375,7 +374,7 @@ def process_posts(posts: list[dict], delay_between_calls: float = 1.5) -> list[d
     total = len(posts)
 
     for i, post in enumerate(posts):
-        print(f"Processing {i+1}/{total}: {post['title'][:50]}...")
+        logger.info(f"Processing {i+1}/{total}: {post['title'][:50]}...")
         enriched_post = categorize_and_summarize(post)
         processed.append(enriched_post)
 
