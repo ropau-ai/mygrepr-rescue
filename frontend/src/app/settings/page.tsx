@@ -67,7 +67,7 @@ export default function SettingsPage() {
     <main className="min-h-screen bg-background pt-16 pb-16">
       <div className="max-w-2xl mx-auto px-6 py-10">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold mb-1" style={{ fontFamily: 'var(--font-serif), serif' }}>
+          <h1 className="text-2xl font-bold mb-1">
             Parametres
           </h1>
           <p className="text-xs text-muted-foreground">Gerez votre compte et vos preferences</p>
@@ -80,7 +80,7 @@ export default function SettingsPage() {
               <User className="h-4 w-4 text-muted-foreground" />
             </div>
             <div>
-              <h2 className="text-sm font-bold" style={{ fontFamily: 'var(--font-serif), serif' }}>Profil</h2>
+              <h2 className="text-sm font-bold">Profil</h2>
               <p className="text-[11px] text-muted-foreground">Informations personnelles</p>
             </div>
           </div>
@@ -123,7 +123,7 @@ export default function SettingsPage() {
               <Bell className="h-4 w-4 text-muted-foreground" />
             </div>
             <div>
-              <h2 className="text-sm font-bold" style={{ fontFamily: 'var(--font-serif), serif' }}>Notifications</h2>
+              <h2 className="text-sm font-bold">Notifications</h2>
               <p className="text-[11px] text-muted-foreground">Preferences de notification</p>
             </div>
           </div>
@@ -163,7 +163,7 @@ export default function SettingsPage() {
               <Palette className="h-4 w-4 text-muted-foreground" />
             </div>
             <div>
-              <h2 className="text-sm font-bold" style={{ fontFamily: 'var(--font-serif), serif' }}>Apparence</h2>
+              <h2 className="text-sm font-bold">Apparence</h2>
               <p className="text-[11px] text-muted-foreground">Personnalisez l'interface</p>
             </div>
           </div>
@@ -204,7 +204,7 @@ export default function SettingsPage() {
               <Shield className="h-4 w-4 text-muted-foreground" />
             </div>
             <div>
-              <h2 className="text-sm font-bold" style={{ fontFamily: 'var(--font-serif), serif' }}>Donnees</h2>
+              <h2 className="text-sm font-bold">Donnees</h2>
               <p className="text-[11px] text-muted-foreground">Gestion des donnees locales</p>
             </div>
           </div>

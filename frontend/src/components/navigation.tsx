@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronDown, Sun, Moon, Menu, X, TrendingUp, BarChart3, Newspaper, Compass } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { useAuth, UserButton } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
+import { UserButton, useUser } from '@clerk/nextjs';
 
 interface NavItem {
   href: string;
@@ -36,7 +36,7 @@ export function Navigation() {
   const [openDropdown, setOpenDropdown] = React.useState<string | null>(null);
   const [mounted, setMounted] = React.useState(false);
   const { theme, setTheme } = useTheme();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn } = useUser();
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -68,7 +68,7 @@ export function Navigation() {
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
             <Compass className="w-4 h-4 text-primary-foreground" />
           </div>
-          <span className="text-lg font-bold tracking-tight" style={{ fontFamily: 'var(--font-serif), serif' }}>
+          <span className="text-lg font-bold tracking-tight">
             Grepr
           </span>
         </Link>
@@ -142,32 +142,28 @@ export function Navigation() {
           <button
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
             className="p-2 hover:bg-muted rounded-lg transition-colors"
+            aria-label="Changer le theme"
           >
             {isDark ? <Sun className="w-4 h-4 text-muted-foreground" /> : <Moon className="w-4 h-4 text-muted-foreground" />}
           </button>
 
-          {isSignedIn ? (
-            <UserButton
-              appearance={{
-                elements: {
-                  avatarBox: 'w-8 h-8',
-                  userButtonTrigger: 'rounded-full border-2 border-transparent hover:border-primary/20 transition-colors',
-                },
-              }}
-            />
-          ) : (
+          {/* Auth */}
+          {mounted && isSignedIn ? (
+            <UserButton />
+          ) : mounted ? (
             <Link
               href="/login"
-              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             >
-              Se connecter
+              Connexion
             </Link>
-          )}
+          ) : null}
 
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="md:hidden p-2 hover:bg-muted rounded-lg transition-colors"
+            aria-label={isMobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
           >
             {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>

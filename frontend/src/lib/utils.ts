@@ -23,14 +23,6 @@ export function formatDistanceToNow(date: Date): string {
   return `il y a ${diffMonths}mois`;
 }
 
-// Check if a post is new (< 24h old)
-export function isPostNew(createdUtc: number | undefined): boolean {
-  if (!createdUtc) return false;
-  const now = Date.now() / 1000; // Convert to seconds
-  const diffHours = (now - createdUtc) / 3600;
-  return diffHours < 24;
-}
-
 // Post freshness levels
 export type FreshnessLevel = 'fresh' | 'recent' | 'old';
 
@@ -49,7 +41,7 @@ export function getPostFreshness(createdUtc: number | undefined, createdA?: stri
   }
 
   if (!postDate || isNaN(postDate.getTime())) {
-    return { level: 'old', label: 'Date inconnue', color: 'text-muted-foreground', bgColor: 'bg-muted' };
+    return { level: 'old', label: 'Toutes periodes', color: 'text-muted-foreground', bgColor: 'bg-muted' };
   }
 
   const diffMs = Date.now() - postDate.getTime();
@@ -149,7 +141,7 @@ export function getDataFreshness(posts: { created_utc?: number }[]): {
 
   const validPosts = posts.filter(p => p.created_utc);
   if (!validPosts.length) {
-    return { mostRecentDate: null, hoursAgo: Infinity, label: 'Date inconnue' };
+    return { mostRecentDate: null, hoursAgo: Infinity, label: 'Toutes periodes' };
   }
 
   const mostRecent = Math.max(...validPosts.map(p => p.created_utc!));

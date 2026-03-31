@@ -1,11 +1,12 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Post, CATEGORIES, CATEGORY_COLORS } from '@/types/post';
+import { LazyMotion, domAnimation, m, AnimatePresence } from 'framer-motion';
+import { Post } from '@/types/post';
 import { ConsensusCluster, type ClusterData } from './consensus-cluster';
 import { BarChart3, Filter, TrendingUp, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CATEGORY_TAG_COLORS } from '@/lib/design-tokens';
 
 type ConsensusFilter = 'all' | 'fort' | 'moyen' | 'faible' | 'divise';
 
@@ -83,23 +84,24 @@ export function ConsensusBoard({ posts }: ConsensusBoardProps) {
   }, [clusters]);
 
   return (
+    <LazyMotion features={domAnimation}>
     <div className="min-h-screen pt-16 pb-16 px-6 max-w-[1400px] mx-auto">
       {/* Header */}
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="mb-8 pt-10"
       >
-        <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: 'var(--font-serif), serif' }}>
+        <h1 className="text-2xl font-bold text-foreground">
           Consensus Board
         </h1>
         <p className="text-xs text-muted-foreground mt-1">
-          Where the community actually agrees — consensus across {stats.topics} topics.
+          La ou la communaute est d&apos;accord — consensus sur {stats.topics} sujets.
         </p>
-      </motion.div>
+      </m.div>
 
       {/* Summary bar */}
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
@@ -111,16 +113,16 @@ export function ConsensusBoard({ posts }: ConsensusBoardProps) {
         </div>
         <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-green-500/10 text-green-700 dark:text-green-400 text-xs">
           <CheckCircle2 className="h-3 w-3" />
-          <span>{stats.highConsensus} high consensus</span>
+          <span>{stats.highConsensus} consensus fort</span>
         </div>
         <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-red-500/10 text-red-700 dark:text-red-400 text-xs">
           <AlertTriangle className="h-3 w-3" />
-          <span>{stats.contested} contested</span>
+          <span>{stats.contested} conteste</span>
         </div>
-      </motion.div>
+      </m.div>
 
       {/* Filter bar */}
-      <motion.div
+      <m.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.15 }}
@@ -138,16 +140,16 @@ export function ConsensusBoard({ posts }: ConsensusBoardProps) {
                 : 'bg-muted text-muted-foreground hover:bg-accent'
             )}
           >
-            {f === 'all' ? 'All' : f === 'fort' ? 'Strong' : f === 'moyen' ? 'Moderate' : f === 'faible' ? 'Weak' : 'Divided'}
+            {f === 'all' ? 'Tous' : f === 'fort' ? 'Fort' : f === 'moyen' ? 'Moyen' : f === 'faible' ? 'Faible' : 'Divise'}
           </button>
         ))}
-      </motion.div>
+      </m.div>
 
       {/* Cluster grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <AnimatePresence mode="popLayout">
           {filteredClusters.map((cluster, i) => (
-            <motion.div
+            <m.div
               key={cluster.category}
               layout
               initial={{ opacity: 0, scale: 0.95 }}
@@ -161,9 +163,9 @@ export function ConsensusBoard({ posts }: ConsensusBoardProps) {
                 onToggle={() => setExpandedCluster(
                   expandedCluster === cluster.category ? null : cluster.category
                 )}
-                categoryColor={CATEGORY_COLORS[cluster.category] || 'bg-gray-500'}
+                categoryColor={CATEGORY_TAG_COLORS[cluster.category] || 'bg-gray-500'}
               />
-            </motion.div>
+            </m.div>
           ))}
         </AnimatePresence>
       </div>
@@ -171,9 +173,10 @@ export function ConsensusBoard({ posts }: ConsensusBoardProps) {
       {filteredClusters.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-30" />
-          <p>No topics match this filter.</p>
+          <p>Aucun sujet ne correspond a ce filtre.</p>
         </div>
       )}
     </div>
+    </LazyMotion>
   );
 }

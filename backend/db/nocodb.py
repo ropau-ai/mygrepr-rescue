@@ -2,8 +2,9 @@
 NocoDB Client - Push posts to NocoDB database
 """
 import json
+import time
 import requests
-from backend.config import NOCODB_BASE_URL, NOCODB_API_TOKEN, NOCODB_TABLE_ID
+from backend.config import NOCODB_BASE_URL, NOCODB_API_TOKEN, NOCODB_TABLE_ID, logger
 
 
 def get_headers():
@@ -20,7 +21,7 @@ def get_existing_post_ids() -> set:
     Uses pagination to handle more than 1000 posts.
     """
     if not NOCODB_API_TOKEN or not NOCODB_TABLE_ID:
-        print("Warning: NocoDB not configured, skipping duplicate check")
+        logger.warning("NocoDB not configured, skipping duplicate check")
         return set()
 
     url = f"{NOCODB_BASE_URL}/api/v2/tables/{NOCODB_TABLE_ID}/records"
@@ -51,7 +52,7 @@ def get_existing_post_ids() -> set:
             offset += page_size
 
         except requests.RequestException as e:
-            print(f"Error fetching existing posts: {e}")
+            logger.error(f"Error fetching existing posts: {e}")
             break
 
     return existing_ids
@@ -63,7 +64,7 @@ def push_post(post: dict) -> bool:
     Returns True if successful.
     """
     if not NOCODB_API_TOKEN or not NOCODB_TABLE_ID:
-        print("Warning: NocoDB not configured")
+        logger.warning("NocoDB not configured")
         return False
 
     url = f"{NOCODB_BASE_URL}/api/v2/tables/{NOCODB_TABLE_ID}/records"
@@ -107,27 +108,35 @@ def push_post(post: dict) -> bool:
         "montant_max": montant_max,
     }
 
-    try:
-        response = requests.post(url, headers=get_headers(), json=record, timeout=30)
-        response.raise_for_status()
-        return True
-    except requests.RequestException as e:
-        print(f"Error pushing post {post.get('id')}: {e}")
-        return False
+    for attempt in range(3):
+        try:
+            response = requests.post(url, headers=get_headers(), json=record, timeout=30)
+            response.raise_for_status()
+            return True
+        except requests.RequestException as e:
+            if attempt < 2:
+                wait = 2 ** (attempt + 1)
+                logger.warning(f"NocoDB push attempt {attempt+1}/3 failed for {post.get('id')}: {e}. Retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                logger.error(f"NocoDB push failed after 3 attempts for {post.get('id')}: {e}")
+                return False
+    return False
 
 
-def push_posts(posts: list[dict]) -> dict:
+def push_posts(posts: list[dict], existing_ids: set | None = None) -> dict:
     """
     Push multiple posts to NocoDB, skipping duplicates.
+    Pass existing_ids to avoid a redundant DB query.
     Returns stats dict with counts.
     """
     if not NOCODB_API_TOKEN or not NOCODB_TABLE_ID:
-        print("⚠️  NocoDB not configured - set NOCODB_API_TOKEN and NOCODB_TABLE_ID in .env")
+        logger.warning("NocoDB not configured - set NOCODB_API_TOKEN and NOCODB_TABLE_ID in .env")
         return {"pushed": 0, "skipped": 0, "errors": 0}
 
-    # Get existing IDs to avoid duplicates
-    existing_ids = get_existing_post_ids()
-    print(f"Found {len(existing_ids)} existing posts in NocoDB")
+    if existing_ids is None:
+        existing_ids = get_existing_post_ids()
+    logger.info(f"Checking against {len(existing_ids)} existing posts in NocoDB")
 
     stats = {"pushed": 0, "skipped": 0, "errors": 0}
 
@@ -140,7 +149,7 @@ def push_posts(posts: list[dict]) -> dict:
 
         if push_post(post):
             stats["pushed"] += 1
-            print(f"  ✓ Pushed: {post.get('title', '')[:50]}...")
+            logger.info(f"Pushed: {post.get('title', '')[:50]}...")
         else:
             stats["errors"] += 1
 
