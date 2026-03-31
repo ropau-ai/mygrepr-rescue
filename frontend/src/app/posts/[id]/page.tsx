@@ -4,7 +4,7 @@ import { fetchPosts } from '@/lib/nocodb';
 import { PostArticle } from '@/components/post-article';
 import { notFound } from 'next/navigation';
 
-export const revalidate = 300;
+export const dynamic = 'force-dynamic';
 
 // Deduplicate fetchPosts across generateMetadata + page component
 const getCachedPosts = cache(() => fetchPosts());
