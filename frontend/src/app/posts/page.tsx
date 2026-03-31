@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "Parcourez les meilleurs conseils financiers extraits et analyses par IA depuis les communautes Reddit francophones et anglophones.",
 };
 
-export const revalidate = 300;
+export const dynamic = 'force-dynamic';
 
 export default async function Posts() {
   const posts = await fetchPosts();
