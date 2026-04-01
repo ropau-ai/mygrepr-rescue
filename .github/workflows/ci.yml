@@ -51,11 +51,17 @@ jobs:
             - name: Deploy Frontend
               run: |
                   curl -s -X POST "${{ secrets.DOKPLOY_WEBHOOK_FRONTEND }}" \
-                    --max-time 120 || true
+                    -H "Content-Type: application/json" \
+                    -H "x-github-event: push" \
+                    -d '{"ref": "refs/heads/main"}' \
+                    --max-time 120 || echo "Frontend webhook failed"
                   echo "Frontend deploy triggered"
 
             - name: Deploy Backend
               run: |
                   curl -s -X POST "${{ secrets.DOKPLOY_WEBHOOK_BACKEND }}" \
-                    --max-time 120 || true
+                    -H "Content-Type: application/json" \
+                    -H "x-github-event: push" \
+                    -d '{"ref": "refs/heads/main"}' \
+                    --max-time 120 || echo "Backend webhook failed"
                   echo "Backend deploy triggered"
