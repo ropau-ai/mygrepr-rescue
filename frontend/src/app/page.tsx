@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { fetchPosts } from '@/lib/nocodb';
+import { Post } from '@/types/post';
 import { DashboardPage } from '@/components/pages/dashboard-page';
 
 export const metadata: Metadata = {
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  let posts;
+  let posts: Post[];
   try {
     posts = await fetchPosts();
   } catch {

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { fetchPosts } from '@/lib/nocodb';
+import { Post } from '@/types/post';
 import { ConsensusBoard } from './components/consensus-board';
 
 export const metadata: Metadata = {
@@ -10,12 +11,10 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function Consensus() {
-  let posts;
+  let posts: Post[] = [];
   try {
     posts = await fetchPosts();
-  } catch {
-    posts = [];
-  }
+  } catch { /* graceful degradation */ }
 
   return <ConsensusBoard posts={posts} />;
 }
