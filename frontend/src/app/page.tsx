@@ -11,7 +11,12 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  const posts = await fetchPosts();
+  let posts;
+  try {
+    posts = await fetchPosts();
+  } catch {
+    posts = [];
+  }
 
   return <DashboardPage posts={posts} />;
 }

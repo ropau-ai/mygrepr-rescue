@@ -10,7 +10,12 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function Consensus() {
-  const posts = await fetchPosts();
+  let posts;
+  try {
+    posts = await fetchPosts();
+  } catch {
+    posts = [];
+  }
 
   return <ConsensusBoard posts={posts} />;
 }
