@@ -50,18 +50,20 @@ jobs:
         steps:
             - name: Deploy Frontend
               run: |
-                  curl -s -X POST "${{ secrets.DOKPLOY_WEBHOOK_FRONTEND }}" \
+                  curl -sv -X POST "${{ secrets.DOKPLOY_WEBHOOK_FRONTEND }}" \
                     -H "Content-Type: application/json" \
                     -H "x-github-event: push" \
                     -d '{"ref": "refs/heads/main"}' \
-                    --max-time 120 || echo "Frontend webhook failed"
+                    --connect-timeout 10 \
+                    --max-time 300 || echo "Frontend webhook failed"
                   echo "Frontend deploy triggered"
 
             - name: Deploy Backend
               run: |
-                  curl -s -X POST "${{ secrets.DOKPLOY_WEBHOOK_BACKEND }}" \
+                  curl -sv -X POST "${{ secrets.DOKPLOY_WEBHOOK_BACKEND }}" \
                     -H "Content-Type: application/json" \
                     -H "x-github-event: push" \
                     -d '{"ref": "refs/heads/main"}' \
-                    --max-time 120 || echo "Backend webhook failed"
+                    --connect-timeout 10 \
+                    --max-time 300 || echo "Backend webhook failed"
                   echo "Backend deploy triggered"
