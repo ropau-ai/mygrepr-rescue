@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' https://umami.jelilahounou.com https://*.clerk.accounts.dev",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://umami.jelilahounou.com https://*.clerk.accounts.dev",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https://*.clerk.com https://img.clerk.com",
               "font-src 'self' https://fonts.gstatic.com",

@@ -7,7 +7,13 @@ import { notFound } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 
 // Deduplicate fetchPosts across generateMetadata + page component
-const getCachedPosts = cache(() => fetchPosts());
+const getCachedPosts = cache(async () => {
+  try {
+    return await fetchPosts();
+  } catch {
+    return [];
+  }
+});
 
 interface PostPageProps {
   params: Promise<{ id: string }>;
