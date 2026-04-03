@@ -4,6 +4,11 @@ const nextConfig: NextConfig = {
   experimental: {
     viewTransition: true,
   },
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "lh3.googleusercontent.com" },
+    ],
+  },
   async headers() {
     return [
       {
@@ -13,12 +18,12 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://umami.jelilahounou.com https://*.clerk.accounts.dev",
+              "script-src 'self' 'unsafe-inline' https://umami.jelilahounou.com https://accounts.google.com",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: https://*.clerk.com https://img.clerk.com",
+              "img-src 'self' data: https://lh3.googleusercontent.com",
               "font-src 'self' https://fonts.gstatic.com",
-              "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://umami.jelilahounou.com",
-              "frame-src 'self' https://*.clerk.accounts.dev",
+              "connect-src 'self' https://accounts.google.com https://umami.jelilahounou.com",
+              "frame-src 'self' https://accounts.google.com",
               "worker-src 'self' blob:",
               "base-uri 'self'",
               "form-action 'self'",

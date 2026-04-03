@@ -213,19 +213,6 @@ textarea:focus-visible {
   opacity: 0.4;
 }
 
-/* Hide Clerk dev mode badge & branding */
-div[data-clerk-id="clerk-development-mode"],
-div[class*="cl-internal"],
-.cl-footer,
-.cl-footerAction,
-a[href*="clerk.com"][target="_blank"],
-body > div[style*="position: fixed"][style*="bottom"] {
-  display: none !important;
-  visibility: hidden !important;
-  height: 0 !important;
-  overflow: hidden !important;
-}
-
 /* View Transitions */
 ::view-transition-old(root) {
   animation: page-out 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;

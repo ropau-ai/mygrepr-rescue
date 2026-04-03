@@ -2,11 +2,12 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { ChevronDown, Sun, Moon, Menu, X, TrendingUp, BarChart3, Newspaper, Compass } from 'lucide-react';
+import { ChevronDown, Sun, Moon, Menu, X, TrendingUp, BarChart3, Newspaper, Compass, LogOut } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
-import { UserButton, useUser } from '@clerk/nextjs';
+import { useSession, signOut } from 'next-auth/react';
 
 interface NavItem {
   href: string;
@@ -36,7 +37,7 @@ export function Navigation() {
   const [openDropdown, setOpenDropdown] = React.useState<string | null>(null);
   const [mounted, setMounted] = React.useState(false);
   const { theme, setTheme } = useTheme();
-  const { isSignedIn } = useUser();
+  const { data: session } = useSession();
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -55,8 +56,8 @@ export function Navigation() {
 
   const isDark = mounted && theme === 'dark';
 
-  // Hide nav on landing and auth pages
-  if (pathname?.startsWith('/landing') || pathname?.startsWith('/login') || pathname?.startsWith('/sign-up')) {
+  // Hide nav on landing and login pages
+  if (pathname?.startsWith('/landing') || pathname?.startsWith('/login')) {
     return null;
   }
 
@@ -148,8 +149,26 @@ export function Navigation() {
           </button>
 
           {/* Auth */}
-          {mounted && isSignedIn ? (
-            <UserButton />
+          {mounted && session?.user ? (
+            <div className="flex items-center gap-2">
+              {session.user.image && (
+                <Image
+                  src={session.user.image}
+                  alt=""
+                  width={28}
+                  height={28}
+                  className="rounded-full"
+                />
+              )}
+              <button
+                onClick={() => signOut()}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                aria-label="Se deconnecter"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Deconnexion</span>
+              </button>
+            </div>
           ) : mounted ? (
             <Link
               href="/login"

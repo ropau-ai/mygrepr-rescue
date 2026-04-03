@@ -3,8 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Navigation } from "@/components/navigation";
 import { MinimalFooter } from "@/components/minimal-footer";
-import { ClerkProvider } from "@clerk/nextjs";
-import { frFR } from "@clerk/localizations";
+import { AuthSessionProvider } from "@/components/session-provider";
 import "./globals.css";
 
 const inter = Inter({
@@ -66,7 +65,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
       >
-        <ClerkProvider localization={frFR}>
+        <AuthSessionProvider>
           <ThemeProvider
             attribute="class"
             defaultTheme="light"
@@ -79,7 +78,7 @@ export default function RootLayout({
             </div>
             <MinimalFooter />
           </ThemeProvider>
-        </ClerkProvider>
+        </AuthSessionProvider>
       </body>
     </html>
   );
