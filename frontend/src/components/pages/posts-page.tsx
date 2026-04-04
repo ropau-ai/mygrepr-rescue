@@ -35,6 +35,12 @@ const LANG_OPTIONS: { value: Language; label: string }[] = [
 
 const POSTS_PER_PAGE = 50;
 
+function getPostDate(post: Post): Date | null {
+  if (post.created_utc) return new Date(post.created_utc * 1000);
+  if (post.created_a) return new Date(post.created_a + 'Z');
+  return null;
+}
+
 export function PostsPage({ posts }: PostsPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
