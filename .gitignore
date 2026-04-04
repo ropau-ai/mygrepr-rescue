@@ -38,3 +38,12 @@ node_modules/
 *.log
 PARTY_MODE_ANALYSIS.md
 .bmad-infrastructure-devops/
+
+# Tooling / reference
+.playwright-mcp/
+_bmad-output/
+_bmad/
+marclou/
+screenshots/
+panda-sidebar.yml
+upstract-nav.yml
