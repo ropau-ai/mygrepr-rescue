@@ -13,12 +13,6 @@ export default auth((req) => {
     }
   }
 
-  // Protect /settings — redirect to login if not authenticated
-  if (req.nextUrl.pathname.startsWith("/settings") && !req.auth) {
-    const loginUrl = new URL("/login", req.url);
-    loginUrl.searchParams.set("callbackUrl", req.nextUrl.pathname);
-    return NextResponse.redirect(loginUrl);
-  }
 });
 
 export const config = {

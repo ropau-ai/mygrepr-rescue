@@ -19,7 +19,6 @@ export function MinimalFooter() {
         </p>
         <div className="flex gap-6">
           <Link href="/about" className="text-xs text-muted-foreground hover:text-foreground transition-colors">A propos</Link>
-          <Link href="/settings" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Parametres</Link>
         </div>
       </div>
     </footer>

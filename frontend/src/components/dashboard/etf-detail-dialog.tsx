@@ -1,6 +1,6 @@
 'use client';
 
-import { ETFInsight } from '@/lib/nocodb';
+import { ETFInsight } from '@/lib/etf-data';
 import { Post } from '@/types/post';
 import {
   Dialog,
@@ -19,10 +19,8 @@ import {
   Star,
   ArrowUpRight,
   MessageSquare,
-  Heart,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { isETFFavorite, toggleETFFavorite } from '@/lib/favorites';
+import { useState } from 'react';
 
 interface ETFDetailDialogProps {
   etf: ETFInsight | null;
@@ -48,21 +46,6 @@ function formatDate(dateStr: string | undefined): string {
 
 export function ETFDetailDialog({ etf, open, onClose, onPostClick }: ETFDetailDialogProps) {
   const [copiedISIN, setCopiedISIN] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
-
-  // Check favorite status on mount and ETF change
-  useEffect(() => {
-    if (etf?.ticker) {
-      setIsFavorite(isETFFavorite(etf.ticker));
-    }
-  }, [etf?.ticker]);
-
-  const handleToggleFavorite = () => {
-    if (etf?.ticker) {
-      const newState = toggleETFFavorite(etf.ticker);
-      setIsFavorite(newState);
-    }
-  };
 
   if (!etf) return null;
 
@@ -82,8 +65,7 @@ export function ETFDetailDialog({ etf, open, onClose, onPostClick }: ETFDetailDi
           <div className="px-6 py-6">
             {/* Header compact */}
             <DialogHeader className="pb-4">
-              <div className="flex items-center justify-between pr-8">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                   {isPopular && <Star className="h-4 w-4 text-amber-400 fill-amber-400" />}
                   <DialogTitle className="text-xl">{etf.ticker}</DialogTitle>
                   <Badge
@@ -95,18 +77,6 @@ export function ETFDetailDialog({ etf, open, onClose, onPostClick }: ETFDetailDi
                   >
                     {etf.eligible}
                   </Badge>
-                </div>
-                <button
-                  onClick={handleToggleFavorite}
-                  className={`p-2 rounded-lg transition-colors shrink-0 ${
-                    isFavorite
-                      ? 'text-red-500 bg-red-500/10'
-                      : 'text-muted-foreground hover:text-red-500 hover:bg-red-500/10'
-                  }`}
-                  title={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-                >
-                  <Heart className={`h-5 w-5 ${isFavorite ? 'fill-current' : ''}`} />
-                </button>
               </div>
               <p className="text-sm text-muted-foreground">{etf.name}</p>
             </DialogHeader>

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Post } from '@/types/post';
-import { ETFInsight, getETFInsights } from '@/lib/nocodb';
+import { ETFInsight, getETFInsights } from '@/lib/etf-data';
 import { Badge } from '@/components/ui/badge';
 import { ETFDetailDialog } from './etf-detail-dialog';
 import {

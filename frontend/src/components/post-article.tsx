@@ -64,13 +64,21 @@ export function PostArticle({ post, relatedPosts }: PostArticleProps) {
                   {post.category}
                 </span>
                 {consensusInfo && (
-                  <span className={cn(
-                    'px-2.5 py-0.5 rounded-full text-xs font-medium',
-                    consensus === 'fort' && 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400',
-                    consensus === 'moyen' && 'bg-yellow-50 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400',
-                    consensus === 'faible' && 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400',
-                    (consensus === 'divise' || consensus === 'divisé') && 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
-                  )}>
+                  <span
+                    className={cn(
+                      'px-2.5 py-0.5 rounded-full text-xs font-medium cursor-help',
+                      consensus === 'fort' && 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400',
+                      consensus === 'moyen' && 'bg-yellow-50 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400',
+                      consensus === 'faible' && 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400',
+                      (consensus === 'divise' || consensus === 'divisé') && 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
+                    )}
+                    title={
+                      consensus === 'fort' ? 'La communaute est largement d\'accord sur ce sujet'
+                        : consensus === 'moyen' ? 'Opinions globalement alignees avec quelques nuances'
+                        : consensus === 'faible' ? 'Peu de commentaires pour etablir un consensus'
+                        : 'La communaute est divisee sur ce sujet'
+                    }
+                  >
                     Consensus {consensusInfo.label}
                   </span>
                 )}
@@ -251,9 +259,9 @@ export function PostArticle({ post, relatedPosts }: PostArticleProps) {
               <h2 className="text-sm font-bold mb-4 border-b border-border pb-2">ETFs mentionnes</h2>
               <div className="flex flex-wrap gap-1.5">
                 {post.etf_detected.map((etf) => (
-                  <span key={etf} className="px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
+                  <Link key={etf} href={`/etf`} className="px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors">
                     {etf}
-                  </span>
+                  </Link>
                 ))}
               </div>
             </section>
