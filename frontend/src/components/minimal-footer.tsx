@@ -7,7 +7,7 @@ export function MinimalFooter() {
     <footer className="px-8 py-12 border-t border-border mt-auto">
       <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-foreground rounded flex items-center justify-center text-background font-bold">
+          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold">
             G
           </div>
           <span className="font-bold text-lg">

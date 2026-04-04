@@ -105,7 +105,7 @@ export function PostArticle({ post, relatedPosts }: PostArticleProps) {
 
             {/* AI Summary — styled card */}
             {post.summary && (
-              <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 mb-8">
+              <div className="rounded-xl border border-primary/20 dark:border-indigo-500/20 bg-primary/5 dark:bg-indigo-500/10 p-6 mb-8">
                 <div className="flex items-center gap-2 mb-3">
                   <Sparkles className="w-4 h-4 text-primary" />
                   <h2 className="text-sm font-bold text-primary">Resume IA</h2>
@@ -183,7 +183,7 @@ export function PostArticle({ post, relatedPosts }: PostArticleProps) {
                     <span className="text-xs font-normal text-muted-foreground ml-2">({post.comment_score} votes)</span>
                   )}
                 </h3>
-                <blockquote className="text-sm leading-relaxed italic border-l-2 border-primary/30 pl-4 py-2 text-foreground/80 bg-muted/30 rounded-r-lg pr-4">
+                <blockquote className="text-sm leading-relaxed italic border-l-2 border-primary/30 dark:border-indigo-400/40 pl-4 py-2 text-foreground/80 bg-muted/30 dark:bg-slate-500/10 rounded-r-lg pr-4">
                   &ldquo;{post.top_comment}&rdquo;
                 </blockquote>
               </div>

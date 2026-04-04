@@ -160,7 +160,7 @@ export function ETFPage({ posts }: ETFPageProps) {
 
   function SortIcon({ column }: { column: SortKey }) {
     if (sortKey !== column) {
-      return <ArrowUpDown className="w-3 h-3 text-slate-300 dark:text-slate-600" />;
+      return <ArrowUpDown className="w-3 h-3 text-slate-400 dark:text-slate-500" />;
     }
     return sortDir === 'asc'
       ? <ChevronUp className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
