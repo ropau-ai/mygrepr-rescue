@@ -1,37 +1,20 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { cn, getPostLanguage, getConfidenceScore, filterByTimePeriod, formatDistanceToNow, type TimePeriod } from '@/lib/utils';
-import { Post, CATEGORIES } from '@/types/post';
-import { Search, MessageSquare, ChevronUp, Clock, X } from 'lucide-react';
+import { cn, getPostLanguage, getPostQualityScore, getConfidenceScore, filterByTimePeriod, formatDistanceToNow, type TimePeriod } from '@/lib/utils';
+import { Post, CATEGORIES, CONSENSUS_COLORS } from '@/types/post';
+import { Search, ArrowUpRight, X, TrendingUp } from 'lucide-react';
 import { getLastVisit, updateLastVisit } from '@/lib/last-visit';
+import { getSourceColor } from '@/lib/design-tokens';
 import Link from 'next/link';
+import { useLanguage } from '@/components/language-provider';
 
 interface PostsPageProps {
   posts: Post[];
 }
 
-type SortBy = 'score' | 'date' | 'confidence';
+type SortBy = 'quality' | 'score' | 'date' | 'confidence';
 type Language = 'all' | 'fr' | 'en';
-
-const PERIOD_OPTIONS: { value: TimePeriod; label: string }[] = [
-  { value: 'all', label: 'Tout' },
-  { value: 'week', label: '7 jours' },
-  { value: 'month', label: '30 jours' },
-  { value: 'quarter', label: '90 jours' },
-];
-
-const SORT_OPTIONS: { value: SortBy; label: string }[] = [
-  { value: 'score', label: 'Plus votés' },
-  { value: 'date', label: 'Plus récents' },
-  { value: 'confidence', label: 'Fiabilité' },
-];
-
-const LANG_OPTIONS: { value: Language; label: string }[] = [
-  { value: 'all', label: 'Tous' },
-  { value: 'fr', label: 'Français' },
-  { value: 'en', label: 'Anglais' },
-];
 
 const POSTS_PER_PAGE = 50;
 
@@ -41,14 +24,59 @@ function getPostDate(post: Post): Date | null {
   return null;
 }
 
+// Reusable eyebrow lockup — matches design-system.md pattern
+function Eyebrow({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+        {label}
+      </span>
+      <div className="h-px w-12 bg-indigo-600/40" />
+    </div>
+  );
+}
+
 export function PostsPage({ posts }: PostsPageProps) {
+  const { locale, t } = useLanguage();
+
+  const PERIOD_OPTIONS: { value: TimePeriod; label: string }[] = [
+    { value: 'all', label: t('posts.all') },
+    { value: 'week', label: t('posts.7days') },
+    { value: 'month', label: t('posts.30days') },
+    { value: 'quarter', label: t('posts.90days') },
+  ];
+
+  const SORT_OPTIONS: { value: SortBy; label: string }[] = [
+    { value: 'quality', label: t('posts.sort_quality') },
+    { value: 'score', label: t('posts.sort_score') },
+    { value: 'date', label: t('posts.sort_date') },
+    { value: 'confidence', label: t('posts.sort_confidence') },
+  ];
+
+  const LANG_OPTIONS: { value: Language; label: string }[] = [
+    { value: 'all', label: t('posts.lang_all') },
+    { value: 'fr', label: t('posts.lang_fr') },
+    { value: 'en', label: t('posts.lang_en') },
+  ];
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedSubreddits, setSelectedSubreddits] = useState<string[]>([]);
-  const [selectedLanguage, setSelectedLanguage] = useState<Language>('all');
+  // Default lang filter follows the nav locale (FR locale → FR feed, EN → EN feed).
+  // User can still flip to 'all' or the opposite language manually.
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>(locale);
   const [selectedTimePeriod, setSelectedTimePeriod] = useState<TimePeriod>('all');
-  const [sortBy, setSortBy] = useState<SortBy>('score');
+  const [sortBy, setSortBy] = useState<SortBy>('quality');
   const [visibleCount, setVisibleCount] = useState(POSTS_PER_PAGE);
+
+  // Re-sync the language filter when the user toggles the nav locale.
+  // We only override if the current filter still matches the previous locale,
+  // so manual choices (e.g. 'all') are preserved.
+  const [prevLocale, setPrevLocale] = useState<Language>(locale);
+  if (prevLocale !== locale) {
+    if (selectedLanguage === prevLocale) setSelectedLanguage(locale);
+    setPrevLocale(locale);
+  }
 
   useEffect(() => {
     getLastVisit();
@@ -95,8 +123,10 @@ export function PostsPage({ posts }: PostsPageProps) {
       })
       .sort((a, b) => {
         switch (sortBy) {
+          case 'quality':
+            return getPostQualityScore(b) - getPostQualityScore(a);
           case 'confidence':
-            return getConfidenceScore(b).score - getConfidenceScore(a).score;
+            return getConfidenceScore(b, locale).score - getConfidenceScore(a, locale).score;
           case 'date': {
             const dateA = a.created_utc || (a.created_a ? new Date(a.created_a + 'Z').getTime() / 1000 : 0);
             const dateB = b.created_utc || (b.created_a ? new Date(b.created_a + 'Z').getTime() / 1000 : 0);
@@ -106,7 +136,7 @@ export function PostsPage({ posts }: PostsPageProps) {
             return (b.score || 0) - (a.score || 0);
         }
       });
-  }, [posts, searchQuery, selectedCategories, selectedSubreddits, selectedLanguage, selectedTimePeriod, sortBy]);
+  }, [posts, searchQuery, selectedCategories, selectedSubreddits, selectedLanguage, selectedTimePeriod, sortBy, locale]);
 
   const filterKey = `${searchQuery}|${selectedCategories}|${selectedSubreddits}|${selectedLanguage}|${selectedTimePeriod}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
@@ -139,27 +169,27 @@ export function PostsPage({ posts }: PostsPageProps) {
   };
 
   return (
-    <main className="min-h-screen bg-[#fcfcfc] dark:bg-[#0f0f14]">
-      <div className="max-w-[1200px] mx-auto px-6 py-10">
+    <main className="min-h-screen bg-[var(--editorial-bg)] text-foreground selection:bg-indigo-100 dark:selection:bg-indigo-900/40">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
         <div className="flex gap-8">
 
-          {/* Sidebar */}
-          <aside className="hidden lg:block w-64 shrink-0">
-            <div className="sticky top-24 space-y-8">
+          {/* Sidebar — warm editorial system */}
+          <aside className="hidden lg:block w-60 shrink-0">
+            <div className="sticky top-20 space-y-7">
 
               {/* Period */}
               <div>
-                <SectionLabel>Période</SectionLabel>
-                <div className="space-y-1 mt-3">
+                <Eyebrow label={t('posts.period')} />
+                <div className="mt-3 flex flex-wrap gap-1.5">
                   {PERIOD_OPTIONS.map(({ value, label }) => (
                     <button
                       key={value}
                       onClick={() => setSelectedTimePeriod(value)}
                       className={cn(
-                        'block w-full text-left px-3 py-1.5 text-sm rounded-lg transition-colors',
+                        'px-2.5 py-1 rounded-sm text-[10px] font-bold uppercase tracking-wide border-b-2 transition-all cursor-pointer',
                         selectedTimePeriod === value
-                          ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-medium'
-                          : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5'
+                          ? 'border-indigo-600 text-indigo-700 dark:text-indigo-400'
+                          : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:border-[var(--warm-border)]'
                       )}
                     >
                       {label}
@@ -170,17 +200,17 @@ export function PostsPage({ posts }: PostsPageProps) {
 
               {/* Language */}
               <div>
-                <SectionLabel>Langue</SectionLabel>
-                <div className="space-y-1 mt-3">
+                <Eyebrow label={t('posts.language')} />
+                <div className="mt-3 flex flex-wrap gap-1.5">
                   {LANG_OPTIONS.map(({ value, label }) => (
                     <button
                       key={value}
                       onClick={() => setSelectedLanguage(value)}
                       className={cn(
-                        'block w-full text-left px-3 py-1.5 text-sm rounded-lg transition-colors',
+                        'px-2.5 py-1 rounded-sm text-[10px] font-bold uppercase tracking-wide border-b-2 transition-all cursor-pointer',
                         selectedLanguage === value
-                          ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-medium'
-                          : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5'
+                          ? 'border-indigo-600 text-indigo-700 dark:text-indigo-400'
+                          : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:border-[var(--warm-border)]'
                       )}
                     >
                       {label}
@@ -191,75 +221,79 @@ export function PostsPage({ posts }: PostsPageProps) {
 
               {/* Categories */}
               <div>
-                <SectionLabel>Catégories</SectionLabel>
-                <div className="space-y-0.5 mt-3 max-h-[320px] overflow-y-auto">
-                  {categoryStats.map(({ category, count }) => (
-                    <label
-                      key={category}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedCategories.includes(category)}
-                        onChange={() => toggleCategory(category)}
-                        className="rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
-                      />
-                      <span className={cn(
-                        'flex-1',
-                        selectedCategories.includes(category) ? 'text-slate-900 dark:text-slate-100 font-medium' : 'text-slate-600 dark:text-slate-400'
-                      )}>
-                        {category}
-                      </span>
-                      <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 tabular-nums">
-                        {count}
-                      </span>
-                    </label>
-                  ))}
+                <Eyebrow label={t('posts.categories')} />
+                <div className="mt-3 space-y-px max-h-[280px] overflow-y-auto">
+                  {categoryStats.map(({ category, count }) => {
+                    const checked = selectedCategories.includes(category);
+                    return (
+                      <button
+                        key={category}
+                        onClick={() => toggleCategory(category)}
+                        className={cn(
+                          'w-full flex items-center gap-2 px-2 py-1 rounded-sm text-xs transition-colors',
+                          checked
+                            ? 'bg-[var(--warm-hover)] text-foreground font-semibold'
+                            : 'text-slate-600 dark:text-slate-400 hover:bg-[var(--warm-hover)]'
+                        )}
+                      >
+                        <span className={cn(
+                          'h-1.5 w-1.5 rounded-full',
+                          checked ? 'bg-indigo-600' : 'bg-[var(--warm-border)]'
+                        )} />
+                        <span className="flex-1 text-left">{category}</span>
+                        <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 tabular-nums">
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Sources */}
               <div>
-                <SectionLabel>Sources</SectionLabel>
-                <div className="space-y-0.5 mt-3 max-h-[240px] overflow-y-auto">
-                  {subredditStats.map(({ subreddit, count }) => (
-                    <label
-                      key={subreddit}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedSubreddits.includes(subreddit)}
-                        onChange={() => toggleSubreddit(subreddit)}
-                        className="rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
-                      />
-                      <span className={cn(
-                        'flex-1',
-                        selectedSubreddits.includes(subreddit) ? 'text-slate-900 dark:text-slate-100 font-medium' : 'text-slate-600 dark:text-slate-400'
-                      )}>
-                        r/{subreddit}
-                      </span>
-                      <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 tabular-nums">
-                        {count}
-                      </span>
-                    </label>
-                  ))}
+                <Eyebrow label={t('posts.sources')} />
+                <div className="mt-3 space-y-px max-h-[240px] overflow-y-auto">
+                  {subredditStats.map(({ subreddit, count }) => {
+                    const checked = selectedSubreddits.includes(subreddit);
+                    return (
+                      <button
+                        key={subreddit}
+                        onClick={() => toggleSubreddit(subreddit)}
+                        className={cn(
+                          'w-full flex items-center gap-2 px-2 py-1 rounded-sm text-xs transition-colors',
+                          checked
+                            ? 'bg-[var(--warm-hover)] text-foreground font-semibold'
+                            : 'text-slate-600 dark:text-slate-400 hover:bg-[var(--warm-hover)]'
+                        )}
+                      >
+                        <span className={cn(
+                          'h-1.5 w-1.5 rounded-full',
+                          checked ? 'bg-indigo-600' : 'bg-[var(--warm-border)]'
+                        )} />
+                        <span className="flex-1 text-left">r/{subreddit}</span>
+                        <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 tabular-nums">
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               {hasFilters && (
                 <button
                   onClick={clearFilters}
-                  className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-600 transition-colors"
+                  className="flex items-center gap-1.5 text-xs text-rose-500 hover:text-rose-600 transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />
-                  Effacer les filtres
+                  {t('posts.clear_filters')}
                 </button>
               )}
             </div>
           </aside>
 
-          {/* Main content */}
+          {/* Main wire feed */}
           <div className="flex-1 min-w-0">
 
             {/* Search bar */}
@@ -267,45 +301,22 @@ export function PostsPage({ posts }: PostsPageProps) {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
               <input
                 type="text"
-                placeholder="Rechercher dans les titres et résumés..."
+                placeholder={t('posts.search_placeholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-white/10 text-sm bg-white dark:bg-[#1a1a22] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all outline-none"
+                className="w-full pl-10 pr-9 py-2.5 rounded-sm border border-[var(--warm-border)] text-sm bg-[var(--paper-bg)] text-foreground placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all outline-none"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
                 >
                   <X className="w-4 h-4" />
                 </button>
               )}
             </div>
 
-            {/* Sort + count bar */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-1">
-                {SORT_OPTIONS.map(({ value, label }) => (
-                  <button
-                    key={value}
-                    onClick={() => setSortBy(value)}
-                    className={cn(
-                      'px-4 py-1.5 text-sm font-medium rounded-full border transition-all',
-                      sortBy === value
-                        ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white'
-                        : 'text-slate-500 dark:text-slate-400 border-transparent hover:border-slate-200 dark:hover:border-white/10'
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <span className="text-xs font-mono text-slate-400 dark:text-slate-500 tabular-nums">
-                {filteredPosts.length} posts
-              </span>
-            </div>
-
-            {/* Mobile filters (collapsed) */}
+            {/* Mobile filter trigger */}
             <MobileFilters
               categoryStats={categoryStats}
               subredditStats={subredditStats}
@@ -319,24 +330,42 @@ export function PostsPage({ posts }: PostsPageProps) {
               setSelectedTimePeriod={setSelectedTimePeriod}
               clearFilters={clearFilters}
               hasFilters={hasFilters}
+              periodOptions={PERIOD_OPTIONS}
+              langOptions={LANG_OPTIONS}
+              t={t}
             />
 
-            {/* Section divider */}
-            <div className="flex items-center gap-4 mb-4">
-              <span className="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
-                Fil
+            {/* Sort + count strip */}
+            <div className="flex items-center justify-between mb-5 pb-4 border-b border-[var(--warm-border)]">
+              <div className="flex items-center gap-1">
+                {SORT_OPTIONS.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setSortBy(value)}
+                    className={cn(
+                      'px-2.5 py-1 rounded-sm text-[10px] font-bold uppercase tracking-wide transition-all cursor-pointer border-b-2',
+                      sortBy === value
+                        ? 'border-indigo-600 text-indigo-700 dark:text-indigo-400'
+                        : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 tabular-nums">
+                {filteredPosts.length} posts
               </span>
-              <div className="h-px flex-1 bg-slate-100 dark:bg-white/5" />
             </div>
 
-            {/* Active filter chips (quick category pills) */}
+            {/* Active filter chips */}
             {selectedCategories.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-4">
                 {selectedCategories.map((cat) => (
                   <button
                     key={cat}
                     onClick={() => toggleCategory(cat)}
-                    className="flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800 transition-colors hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+                    className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded-sm bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 transition-colors hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
                   >
                     {cat}
                     <X className="w-3 h-3" />
@@ -345,104 +374,92 @@ export function PostsPage({ posts }: PostsPageProps) {
               </div>
             )}
 
-            {/* Dense rows */}
-            <div className="divide-y divide-slate-100 dark:divide-white/5">
-              {visiblePosts.map((post, idx) => {
+            {/* Wire feed — flat list */}
+            <div className="divide-y divide-[var(--warm-divider)]">
+              {visiblePosts.length > 0 ? visiblePosts.map((post) => {
                 const postDate = getPostDate(post);
-                const timeLabel = postDate ? formatDistanceToNow(postDate) : '';
-                const confidence = getConfidenceScore(post);
+                const timeLabel = postDate ? formatDistanceToNow(postDate, locale) : '';
+                const sourceClass = getSourceColor(post.subreddit);
+                const confidence = sortBy === 'confidence' ? getConfidenceScore(post, locale) : null;
 
                 return (
                   <Link
                     key={post.Id}
                     href={`/posts/${post.reddit_id}`}
-                    className="group flex items-start gap-3 px-3 py-2.5 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors"
+                    className="group flex items-center justify-between py-4 px-2 -mx-2 transition-all duration-200 hover:bg-[var(--warm-hover)]"
                   >
-                    {/* Rank */}
-                    <span className="font-mono text-[11px] text-slate-300 dark:text-slate-600 w-6 pt-0.5 text-right shrink-0 tabular-nums">
-                      {idx + 1}
-                    </span>
-
-                    {/* Votes */}
-                    <span className="flex flex-col items-center w-8 shrink-0 pt-0.5">
-                      <ChevronUp className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-                      <span className="font-mono text-[10px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">
-                        {post.score || 0}
-                      </span>
-                    </span>
-
-                    {/* Title + meta */}
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-900 dark:group-hover:text-indigo-300 tracking-tight line-clamp-1">
-                        {post.title}
-                      </span>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                          r/{post.subreddit}
-                        </span>
-                        {post.category && (
-                          <span className="font-mono text-[9px] uppercase bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 px-1.5 py-px rounded-[2px]">
-                            {post.category}
-                          </span>
-                        )}
-                        {post.consensus && (
-                          <span className={cn(
-                            'text-[10px] font-medium',
-                            post.consensus.toLowerCase() === 'fort' && 'text-emerald-600 dark:text-emerald-400',
-                            post.consensus.toLowerCase() === 'moyen' && 'text-amber-600 dark:text-amber-400',
-                            post.consensus.toLowerCase() === 'faible' && 'text-orange-600 dark:text-orange-400',
-                            (post.consensus.toLowerCase() === 'divise' || post.consensus.toLowerCase() === 'divisé') && 'text-red-600 dark:text-red-400',
-                          )}>
-                            {post.consensus}
-                          </span>
-                        )}
-                        {sortBy === 'confidence' && (
-                          <span className={cn('text-[10px] font-mono font-bold tabular-nums', confidence.color)}>
-                            {confidence.score}%
-                          </span>
+                    <div className="flex items-start gap-4 min-w-0 flex-1">
+                      <div className={cn(
+                        'hidden sm:flex shrink-0 w-32 justify-center items-center py-1 text-[10px] font-bold uppercase tracking-wide rounded-sm',
+                        sourceClass
+                      )}>
+                        r/{post.subreddit}
+                      </div>
+                      <div className="flex flex-col gap-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-3 min-w-0">
+                          {post.category && (
+                            <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded-sm leading-none shrink-0 tracking-wide uppercase">
+                              {post.category}
+                            </span>
+                          )}
+                          {post.consensus && CONSENSUS_COLORS[post.consensus.toLowerCase()] && (
+                            <span
+                              title={`Consensus: ${CONSENSUS_COLORS[post.consensus.toLowerCase()].label}`}
+                              className={cn(
+                                'h-1.5 w-1.5 rounded-full shrink-0',
+                                CONSENSUS_COLORS[post.consensus.toLowerCase()].bg
+                              )}
+                            />
+                          )}
+                          <h2 className="text-base md:text-[17px] font-bold text-foreground leading-tight transition-colors group-hover:text-indigo-900 dark:group-hover:text-indigo-300 truncate">
+                            {post.title}
+                          </h2>
+                        </div>
+                        {post.summary && (
+                          <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-1 group-hover:text-slate-600 dark:group-hover:text-slate-300 max-w-2xl">
+                            {post.summary}
+                          </p>
                         )}
                       </div>
                     </div>
 
-                    {/* Time + comments */}
-                    <div className="flex items-center gap-3 shrink-0 pt-0.5">
-                      {(post.num_comments ?? 0) > 0 && (
-                        <span className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
-                          <MessageSquare className="w-3 h-3" />
-                          <span className="font-mono tabular-nums">{post.num_comments}</span>
-                        </span>
+                    <div className="flex flex-col items-end shrink-0 pl-4">
+                      <div className="text-[10px] font-medium text-slate-400 dark:text-slate-500 tabular-nums whitespace-nowrap">
+                        {post.score || 0} · {post.num_comments || 0}{timeLabel ? ` · ${timeLabel}` : ''}
+                      </div>
+                      {confidence && (
+                        <div className={cn('text-[10px] font-mono font-bold tabular-nums mt-0.5', confidence.color)}>
+                          {confidence.score}%
+                        </div>
                       )}
-                      {timeLabel && (
-                        <span className="flex items-center gap-1 text-[11px] text-slate-400 dark:text-slate-500">
-                          <Clock className="w-3 h-3" />
-                          {timeLabel}
-                        </span>
-                      )}
+                    </div>
+
+                    <div className="hidden md:block opacity-0 group-hover:opacity-100 transition-all ml-4">
+                      <ArrowUpRight className="w-4 h-4 text-indigo-400" />
                     </div>
                   </Link>
                 );
-              })}
+              }) : (
+                <div className="py-20 text-center">
+                  <TrendingUp className="w-10 h-10 text-[var(--warm-border)] mx-auto mb-4" />
+                  <p className="text-sm text-slate-400 dark:text-slate-500">{t('posts.no_results')}</p>
+                  {hasFilters && (
+                    <button onClick={clearFilters} className="mt-2 text-xs text-indigo-600 dark:text-indigo-400 hover:underline">
+                      {t('posts.clear_filters')}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-
-            {filteredPosts.length === 0 && (
-              <div className="text-center py-16">
-                <p className="text-sm text-slate-400 dark:text-slate-500">Aucun post trouvé.</p>
-                {hasFilters && (
-                  <button onClick={clearFilters} className="mt-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
-                    Effacer les filtres
-                  </button>
-                )}
-              </div>
-            )}
 
             {/* Load more */}
             {hasMore && (
-              <div className="flex justify-center mt-8">
+              <div className="flex justify-center mt-10">
                 <button
                   onClick={() => setVisibleCount((prev) => prev + POSTS_PER_PAGE)}
-                  className="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-white/10 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                  className="px-5 py-2.5 rounded-sm border border-[var(--warm-border)] bg-[var(--paper-bg)] text-[10px] font-bold uppercase tracking-[0.15em] text-slate-600 dark:text-slate-300 hover:text-indigo-600 hover:border-indigo-600 transition-colors"
                 >
-                  Voir plus ({filteredPosts.length - visibleCount} restants)
+                  {t('posts.load_more', { count: filteredPosts.length - visibleCount })}
                 </button>
               </div>
             )}
@@ -450,17 +467,6 @@ export function PostsPage({ posts }: PostsPageProps) {
         </div>
       </div>
     </main>
-  );
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-        {children}
-      </span>
-      <div className="h-px flex-1 bg-slate-100 dark:bg-white/5" />
-    </div>
   );
 }
 
@@ -477,6 +483,9 @@ function MobileFilters({
   setSelectedTimePeriod,
   clearFilters,
   hasFilters,
+  periodOptions,
+  langOptions,
+  t,
 }: {
   categoryStats: { category: string; count: number }[];
   subredditStats: { subreddit: string; count: number }[];
@@ -490,6 +499,9 @@ function MobileFilters({
   setSelectedTimePeriod: (period: TimePeriod) => void;
   clearFilters: () => void;
   hasFilters: boolean;
+  periodOptions: { value: TimePeriod; label: string }[];
+  langOptions: { value: Language; label: string }[];
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -498,33 +510,33 @@ function MobileFilters({
       <button
         onClick={() => setOpen(!open)}
         className={cn(
-          'flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors w-full justify-center',
+          'flex items-center gap-2 px-4 py-2 rounded-sm border text-[10px] font-bold uppercase tracking-[0.15em] transition-colors w-full justify-center',
           open
-            ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white'
-            : 'text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20'
+            ? 'bg-indigo-600 text-white border-indigo-600'
+            : 'text-slate-600 dark:text-slate-300 border-[var(--warm-border)] bg-[var(--paper-bg)] hover:border-indigo-600'
         )}
       >
-        Filtres
+        {t('posts.filters')}
         {hasFilters && (
-          <span className="w-2 h-2 rounded-full bg-indigo-500" />
+          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
         )}
       </button>
 
       {open && (
-        <div className="mt-3 p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1a1a22] space-y-5">
+        <div className="mt-3 p-4 rounded-sm border border-[var(--warm-border)] bg-[var(--paper-bg)] space-y-5">
           {/* Period */}
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Période</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">{t('posts.period')}</span>
             <div className="flex flex-wrap gap-1.5 mt-2">
-              {PERIOD_OPTIONS.map(({ value, label }) => (
+              {periodOptions.map(({ value, label }) => (
                 <button
                   key={value}
                   onClick={() => setSelectedTimePeriod(value)}
                   className={cn(
-                    'px-3 py-1 text-xs rounded-full border transition-all',
+                    'px-2.5 py-1 text-[10px] font-bold uppercase rounded-sm border transition-all',
                     selectedTimePeriod === value
-                      ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900'
-                      : 'text-slate-500 border-slate-200 dark:border-white/10 dark:text-slate-400'
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'text-slate-500 border-[var(--warm-border)]'
                   )}
                 >
                   {label}
@@ -535,17 +547,17 @@ function MobileFilters({
 
           {/* Language */}
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Langue</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">{t('posts.language')}</span>
             <div className="flex flex-wrap gap-1.5 mt-2">
-              {LANG_OPTIONS.map(({ value, label }) => (
+              {langOptions.map(({ value, label }) => (
                 <button
                   key={value}
                   onClick={() => setSelectedLanguage(value)}
                   className={cn(
-                    'px-3 py-1 text-xs rounded-full border transition-all',
+                    'px-2.5 py-1 text-[10px] font-bold uppercase rounded-sm border transition-all',
                     selectedLanguage === value
-                      ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900'
-                      : 'text-slate-500 border-slate-200 dark:border-white/10 dark:text-slate-400'
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'text-slate-500 border-[var(--warm-border)]'
                   )}
                 >
                   {label}
@@ -556,17 +568,17 @@ function MobileFilters({
 
           {/* Categories */}
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Catégories</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">{t('posts.categories')}</span>
             <div className="flex flex-wrap gap-1.5 mt-2">
               {categoryStats.map(({ category, count }) => (
                 <button
                   key={category}
                   onClick={() => toggleCategory(category)}
                   className={cn(
-                    'px-3 py-1 text-xs rounded-full border transition-all',
+                    'px-2.5 py-1 text-[10px] font-bold uppercase rounded-sm border transition-all',
                     selectedCategories.includes(category)
-                      ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900'
-                      : 'text-slate-500 border-slate-200 dark:border-white/10 dark:text-slate-400'
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'text-slate-500 border-[var(--warm-border)]'
                   )}
                 >
                   {category} ({count})
@@ -577,17 +589,17 @@ function MobileFilters({
 
           {/* Sources */}
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Sources</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">{t('posts.sources')}</span>
             <div className="flex flex-wrap gap-1.5 mt-2">
               {subredditStats.map(({ subreddit, count }) => (
                 <button
                   key={subreddit}
                   onClick={() => toggleSubreddit(subreddit)}
                   className={cn(
-                    'px-3 py-1 text-xs rounded-full border transition-all',
+                    'px-2.5 py-1 text-[10px] font-bold uppercase rounded-sm border transition-all',
                     selectedSubreddits.includes(subreddit)
-                      ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900'
-                      : 'text-slate-500 border-slate-200 dark:border-white/10 dark:text-slate-400'
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'text-slate-500 border-[var(--warm-border)]'
                   )}
                 >
                   r/{subreddit} ({count})
@@ -596,17 +608,17 @@ function MobileFilters({
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-white/5">
+          <div className="flex items-center justify-between pt-3 border-t border-[var(--warm-divider)]">
             {hasFilters && (
-              <button onClick={clearFilters} className="text-xs text-red-500 hover:text-red-600">
-                Tout effacer
+              <button onClick={clearFilters} className="text-[10px] font-bold uppercase tracking-wide text-rose-500 hover:text-rose-600">
+                {t('posts.clear_all')}
               </button>
             )}
             <button
               onClick={() => setOpen(false)}
-              className="ml-auto px-4 py-1.5 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-medium"
+              className="ml-auto px-4 py-1.5 rounded-sm bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-wide"
             >
-              Appliquer
+              {t('posts.apply')}
             </button>
           </div>
         </div>

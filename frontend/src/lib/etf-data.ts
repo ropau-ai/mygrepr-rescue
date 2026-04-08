@@ -20,11 +20,11 @@ export const ETF_DATABASE: ETFInfo[] = [
   { ticker: 'PSP5', name: 'Lyxor PEA S&P 500 UCITS ETF', isin: 'FR0011871128', provider: 'Amundi (ex-Lyxor)', description: 'ETF S&P 500 eligible PEA', eligible: 'PEA', ter: '0.15%', keywords: ['psp5', 'lyxor sp500'] },
   { ticker: 'PCEU', name: 'Amundi PEA MSCI Europe UCITS ETF', isin: 'FR0013412038', provider: 'Amundi', description: 'ETF Europe (400+ actions europeennes)', eligible: 'PEA', ter: '0.15%', keywords: ['pceu', 'msci europe', 'europe etf'] },
   { ticker: 'STOXX600', name: 'Lyxor Stoxx Europe 600 UCITS ETF', isin: 'LU0908500753', provider: 'Amundi (ex-Lyxor)', description: 'ETF 600 plus grandes entreprises europeennes', eligible: 'PEA', ter: '0.07%', keywords: ['stoxx600', 'stoxx 600', 'europe 600'] },
-  { ticker: 'PAEEM', name: 'Amundi PEA Emerging Markets UCITS ETF', isin: 'FR0013412020', provider: 'Amundi', description: 'ETF Marches Emergents (Chine, Inde, Bresil...)', eligible: 'PEA', ter: '0.20%', keywords: ['paeem', 'emerging', 'emergents', 'em'] },
+  { ticker: 'PAEEM', name: 'Amundi PEA Emerging Markets UCITS ETF', isin: 'FR0013412020', provider: 'Amundi', description: 'ETF Marches Emergents (Chine, Inde, Bresil...)', eligible: 'PEA', ter: '0.20%', keywords: ['paeem', 'emerging', 'emergents', 'marches emergents'] },
   { ticker: 'PUST', name: 'Amundi PEA Nasdaq-100 UCITS ETF', isin: 'FR0013412269', provider: 'Amundi', description: 'ETF 100 plus grandes tech US (Apple, Microsoft, Google...)', eligible: 'PEA', ter: '0.23%', keywords: ['pust', 'nasdaq', 'nasdaq100', 'nasdaq 100', 'tech us'] },
   { ticker: 'PANX', name: 'Lyxor PEA Nasdaq-100 UCITS ETF', isin: 'FR0011871110', provider: 'Amundi (ex-Lyxor)', description: 'ETF Nasdaq-100 Lyxor eligible PEA', eligible: 'PEA', ter: '0.30%', keywords: ['panx', 'lyxor nasdaq'] },
-  { ticker: 'CAC', name: 'Amundi CAC 40 UCITS ETF', isin: 'FR0007052782', provider: 'Amundi', description: 'ETF CAC 40 - 40 plus grandes entreprises francaises', eligible: 'PEA', ter: '0.25%', keywords: ['cac', 'cac40', 'cac 40', 'france'] },
-  { ticker: 'PMEH', name: 'Amundi PEA PME (Small Caps France)', isin: 'FR0011770775', provider: 'Amundi', description: 'ETF PME francaises - petites et moyennes entreprises', eligible: 'PEA', ter: '0.50%', keywords: ['pmeh', 'pme', 'small caps france', 'french tech'] },
+  { ticker: 'CAC', name: 'Amundi CAC 40 UCITS ETF', isin: 'FR0007052782', provider: 'Amundi', description: 'ETF CAC 40 - 40 plus grandes entreprises francaises', eligible: 'PEA', ter: '0.25%', keywords: ['cac', 'cac40', 'cac 40'] },
+  { ticker: 'PMEH', name: 'Amundi PEA PME (Small Caps France)', isin: 'FR0011770775', provider: 'Amundi', description: 'ETF PME francaises - petites et moyennes entreprises', eligible: 'PEA', ter: '0.50%', keywords: ['pmeh', 'pme', 'small caps france'] },
   { ticker: 'VWCE', name: 'Vanguard FTSE All-World UCITS ETF', isin: 'IE00BK5BQT80', provider: 'Vanguard', description: 'ETF World + Emergents (3900+ actions mondiales) - CTO uniquement', eligible: 'CTO', ter: '0.22%', keywords: ['vwce', 'vanguard world', 'ftse all world', 'vanguard'] },
   { ticker: 'IWDA', name: 'iShares Core MSCI World UCITS ETF', isin: 'IE00B4L5Y983', provider: 'BlackRock (iShares)', description: 'ETF World iShares - CTO uniquement', eligible: 'CTO', ter: '0.20%', keywords: ['iwda', 'ishares world', 'core msci world'] },
 ];
@@ -46,13 +46,19 @@ export interface ETFInsight {
 export function getETFInsights(posts: Post[]): ETFInsight[] {
   const etfData: Record<string, { posts: Post[]; totalScore: number; etfInfo: ETFInfo }> = {};
 
+  // Pre-compile word-boundary regex patterns once
+  const etfPatterns = ETF_DATABASE.map(etfInfo => ({
+    etfInfo,
+    patterns: [etfInfo.ticker.toLowerCase(), ...etfInfo.keywords].map(keyword =>
+      new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+    ),
+  }));
+
   posts.forEach(post => {
     const searchText = `${post.title} ${post.tags || ''} ${post.summary || ''}`.toLowerCase();
 
-    ETF_DATABASE.forEach(etfInfo => {
-      const matches = [etfInfo.ticker.toLowerCase(), ...etfInfo.keywords].some(keyword =>
-        searchText.includes(keyword)
-      );
+    etfPatterns.forEach(({ etfInfo, patterns }) => {
+      const matches = patterns.some(pattern => pattern.test(searchText));
 
       if (matches) {
         const key = etfInfo.ticker;

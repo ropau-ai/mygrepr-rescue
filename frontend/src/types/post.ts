@@ -1,13 +1,3 @@
-export interface ExtractedData {
-  amounts: number[];
-  patrimoine: number | null;
-  revenus_annuels: number | null;
-  revenus_mensuels: number | null;
-  epargne_mensuelle: number | null;
-  age: number | null;
-  duree_annees: number | null;
-}
-
 export interface Post {
   Id: number;
   reddit_id: string;
@@ -29,7 +19,6 @@ export interface Post {
   top_comment?: string;
   comment_score?: number;
   // Extracted financial data
-  extracted_data?: string; // JSON string
   patrimoine?: number;
   revenus_annuels?: number;
   age_auteur?: number;
@@ -38,16 +27,6 @@ export interface Post {
   etf_detected?: string[];
   CreatedAt?: string;
   UpdatedAt?: string;
-}
-
-// Helper to parse extracted_data JSON
-export function parseExtractedData(post: Post): ExtractedData | null {
-  if (!post.extracted_data) return null;
-  try {
-    return JSON.parse(post.extracted_data) as ExtractedData;
-  } catch {
-    return null;
-  }
 }
 
 // Format amount for display (100000 -> "100k€")
@@ -61,8 +40,6 @@ export function formatAmount(amount: number | null | undefined): string {
   }
   return `${amount}€`;
 }
-
-export type ViewType = 'table' | 'gallery';
 
 export const CATEGORIES = [
   'ETF',

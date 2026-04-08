@@ -49,7 +49,7 @@ function LoginForm() {
           </button>
 
           <p className="text-[11px] text-muted-foreground text-center mt-4">
-            En continuant, vous acceptez nos conditions d'utilisation.
+            En continuant, vous acceptez nos conditions d&apos;utilisation.
           </p>
         </div>
       </div>

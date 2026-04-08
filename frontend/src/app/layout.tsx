@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Navigation } from "@/components/navigation";
 import { MinimalFooter } from "@/components/minimal-footer";
 import { AuthSessionProvider } from "@/components/session-provider";
+import { LanguageProvider } from "@/components/language-provider";
 import "./globals.css";
 
 const inter = Inter({
@@ -63,21 +64,23 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
+        className={`${inter.variable} ${jetbrainsMono.variable} antialiased bg-[var(--editorial-bg)] text-foreground`}
       >
         <AuthSessionProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-            disableTransitionOnChange={false}
-          >
-            <Navigation />
-            <div className="relative z-10 min-h-screen pb-12">
-              {children}
-            </div>
-            <MinimalFooter />
-          </ThemeProvider>
+          <LanguageProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="light"
+              enableSystem
+              disableTransitionOnChange={false}
+            >
+              <Navigation />
+              <div className="relative z-10 min-h-screen pb-12">
+                {children}
+              </div>
+              <MinimalFooter />
+            </ThemeProvider>
+          </LanguageProvider>
         </AuthSessionProvider>
       </body>
     </html>

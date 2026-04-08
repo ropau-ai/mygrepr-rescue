@@ -1,27 +1,58 @@
 // Centralized design tokens for Grepr
-// Category colors, consensus colors, and shared visual constants
+// Source colors and SourceBar swatches for the warm-paper editorial/cockpit system
+// (vibes-v2 migration 2026-04-07)
 
-export const CATEGORY_TAG_COLORS: Record<string, string> = {
-  'ETF': 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
-  'Immobilier': 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
-  'Crypto': 'bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400',
-  'Epargne': 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
-  'Fiscalite': 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400',
-  'Actions': 'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400',
-  'Strategie': 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400',
-  'Milestone': 'bg-yellow-50 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400',
-  'Question': 'bg-slate-50 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400',
-  'Retour XP': 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400',
-  'Budget': 'bg-lime-50 text-lime-700 dark:bg-lime-500/10 dark:text-lime-400',
-  'Retraite': 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400',
-  'Credit': 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
-  'Carriere': 'bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400',
-  'Actualite': 'bg-zinc-50 text-zinc-600 dark:bg-zinc-500/10 dark:text-zinc-400',
-  'Autre': 'bg-gray-50 text-gray-600 dark:bg-gray-500/10 dark:text-gray-400',
+// ─── Source (subreddit) colors ──────────────────────────────────
+// Soft tinted pill — used by source tags in feed rows, hero, wire strip.
+// Keys are normalized (lowercase, no "r/" prefix) to match data shape.
+// 14-slot OKLCH-spaced palette covering all backend SUBREDDITS.
+export const SOURCE_COLORS: Record<string, string> = {
+  // Francophone
+  'vosfinances':          'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
+  'vossous':              'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
+  // Europe
+  'eupersonalfinance':    'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300',
+  'etfs_europe':          'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+  'ukpersonalfinance':    'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+  // Anglophone — ETF/Investing
+  'bogleheads':           'bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300',
+  'etfs':                 'bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300',
+  'investing':            'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
+  'portfolios':           'bg-lime-100 text-lime-700 dark:bg-lime-500/15 dark:text-lime-300',
+  // Anglophone — Personal Finance
+  'personalfinance':      'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
+  'financialindependence':'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/15 dark:text-fuchsia-300',
+  'fire':                 'bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300',
+  'dividends':            'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300',
 };
 
-export const DEFAULT_TAG_COLOR = 'bg-gray-50 text-gray-600 dark:bg-gray-500/10 dark:text-gray-400';
+export const DEFAULT_SOURCE_COLOR = 'bg-stone-100 text-stone-700 dark:bg-stone-500/15 dark:text-stone-300';
 
-export function getCategoryColor(category: string): string {
-  return CATEGORY_TAG_COLORS[category] || DEFAULT_TAG_COLOR;
+export function getSourceColor(subreddit: string): string {
+  return SOURCE_COLORS[subreddit?.toLowerCase()] || DEFAULT_SOURCE_COLOR;
+}
+
+// ─── Source bar colors ──────────────────────────────────────────
+// Solid swatches paired with SOURCE_COLORS, used by <SourceBar />
+// for proportional cross-community distribution visualization.
+export const SOURCE_BAR_COLORS: Record<string, string> = {
+  'vosfinances':          'bg-violet-500',
+  'vossous':              'bg-blue-500',
+  'eupersonalfinance':    'bg-orange-500',
+  'etfs_europe':          'bg-emerald-500',
+  'ukpersonalfinance':    'bg-amber-500',
+  'bogleheads':           'bg-pink-500',
+  'etfs':                 'bg-teal-500',
+  'investing':            'bg-rose-500',
+  'portfolios':           'bg-lime-500',
+  'personalfinance':      'bg-sky-500',
+  'financialindependence':'bg-fuchsia-500',
+  'fire':                 'bg-cyan-500',
+  'dividends':            'bg-indigo-500',
+};
+
+export const DEFAULT_SOURCE_BAR_COLOR = 'bg-stone-500';
+
+export function getSourceBarColor(subreddit: string): string {
+  return SOURCE_BAR_COLORS[subreddit?.toLowerCase()] || DEFAULT_SOURCE_BAR_COLOR;
 }

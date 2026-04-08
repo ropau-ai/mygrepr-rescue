@@ -1,43 +1,42 @@
-import type { Metadata } from 'next';
+'use client';
+
 import { Github, ExternalLink, TrendingUp, Brain, Database, Zap } from 'lucide-react';
-
-export const metadata: Metadata = {
-  title: "A propos de Grepr — Analyses financieres par IA",
-  description: "Grepr agregge et analyse les conseils financiers des communautes Reddit. Categorisation IA, classement ETF, consensus communautaire.",
-};
-
-const features = [
-  { icon: TrendingUp, title: 'Agregation Reddit', description: 'Collecte automatique depuis r/vosfinances, r/Bogleheads et d\'autres communautes finance.' },
-  { icon: Brain, title: 'Analyse IA', description: 'Categorisation intelligente, resumes et extraction de conseils cles via Groq AI.' },
-  { icon: Database, title: 'Base ETF', description: '40+ ETFs avec detection automatique des tickers dans les posts.' },
-  { icon: Zap, title: 'Tableau de bord', description: 'Interface moderne pour explorer les tendances, comparer les ETFs et decouvrir les meilleurs conseils.' },
-];
+import { useLanguage } from '@/components/language-provider';
 
 const techStack = [
   'Next.js', 'React 19', 'Tailwind CSS', 'Python', 'Groq AI', 'NocoDB',
 ];
 
 export default function AboutPage() {
+  const { t } = useLanguage();
+
+  const features = [
+    { icon: TrendingUp, title: t('about.feat_aggregation'), description: t('about.feat_aggregation_desc') },
+    { icon: Brain, title: t('about.feat_ai'), description: t('about.feat_ai_desc') },
+    { icon: Database, title: t('about.feat_etf'), description: t('about.feat_etf_desc') },
+    { icon: Zap, title: t('about.feat_dashboard'), description: t('about.feat_dashboard_desc') },
+  ];
+
   return (
     <main className="min-h-screen bg-background pt-16 pb-16">
       <div className="max-w-2xl mx-auto px-6 py-10">
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold mb-2">
-            A propos de Grepr
+            {t('about.title')}
           </h1>
           <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-            Intelligence financiere par IA, extraite des communautes Reddit
+            {t('about.subtitle')}
           </p>
         </div>
 
         <div className="bg-card border border-border rounded-lg p-6 mb-6">
           <h2 className="text-base font-bold mb-3">
-            Qu'est-ce que Grepr ?
+            {t('about.what_is')}
           </h2>
           <div className="space-y-2 text-xs text-muted-foreground leading-relaxed">
-            <p>Grepr agregge et analyse les conseils financiers des communautes Reddit francophones et anglophones.</p>
-            <p>Notre objectif : faire remonter les meilleures pratiques d'investissement, les ETFs populaires et les strategies recommandees par la communaute.</p>
-            <p>L'analyse est realisee par Groq AI (LLaMA 3.3 70B) pour la categorisation et les resumes.</p>
+            <p>{t('about.desc1')}</p>
+            <p>{t('about.desc2')}</p>
+            <p>{t('about.desc3')}</p>
           </div>
         </div>
 
@@ -55,10 +54,10 @@ export default function AboutPage() {
         </div>
 
         <div className="bg-card border border-border rounded-lg p-6 mb-6">
-          <h2 className="text-base font-bold mb-3">Technologies</h2>
+          <h2 className="text-base font-bold mb-3">{t('about.technologies')}</h2>
           <div className="flex flex-wrap gap-1.5">
-            {techStack.map((t) => (
-              <span key={t} className="px-2.5 py-1 rounded text-[11px] bg-muted text-muted-foreground">{t}</span>
+            {techStack.map((tech) => (
+              <span key={tech} className="px-2.5 py-1 rounded text-[11px] bg-muted text-muted-foreground">{tech}</span>
             ))}
           </div>
         </div>
@@ -75,7 +74,7 @@ export default function AboutPage() {
         </div>
 
         <p className="text-center text-[10px] mt-8 text-muted-foreground/60">
-          Ce projet a un but educatif. Les informations presentees ne constituent pas un conseil financier.
+          {t('about.disclaimer')}
         </p>
       </div>
     </main>

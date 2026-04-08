@@ -1,30 +1,33 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { getDataFreshness, getPostFreshness } from '@/lib/utils';
-import { Post, CONSENSUS_COLORS } from '@/types/post';
+import { getDataFreshness, getPostFreshness, getPostLanguage, getPostQualityScore, cn } from '@/lib/utils';
+import { Post } from '@/types/post';
 import { getETFInsights } from '@/lib/etf-data';
-import { ArrowUp, MessageSquare, ExternalLink, TrendingUp, Database, Radio } from 'lucide-react';
+import { Check, TrendingUp, TrendingDown } from 'lucide-react';
 import { getLastVisit, updateLastVisit, isNewSinceLastVisit } from '@/lib/last-visit';
 import Link from 'next/link';
-import { getCategoryColor } from '@/lib/design-tokens';
+import { getSourceColor } from '@/lib/design-tokens';
+import { SourceBar, type SourceSlice } from '@/components/source-bar';
+import { useLanguage } from '@/components/language-provider';
 
 interface DashboardPageProps {
   posts: Post[];
 }
 
-function SectionDivider({ label }: { label: string }) {
+function Eyebrow({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-4 mb-4">
-      <span className="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
+    <div className="flex items-center gap-3 mb-4">
+      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-500 dark:text-stone-400">
         {label}
       </span>
-      <div className="h-px flex-1 bg-slate-100 dark:bg-white/10" />
+      <div className="h-px w-12 bg-indigo-600/40" />
     </div>
   );
 }
 
 export function DashboardPage({ posts }: DashboardPageProps) {
+  const { locale, t } = useLanguage();
   const [lastVisit] = useState(() => getLastVisit());
 
   useEffect(() => {
@@ -32,307 +35,377 @@ export function DashboardPage({ posts }: DashboardPageProps) {
     return () => clearTimeout(timer);
   }, []);
 
-  const freshness = useMemo(() => getDataFreshness(posts), [posts]);
+  // Locale-scoped post pool: FR locale → only FR subreddits, EN → only EN subs.
+  // Single source of truth that powers every memo on this page.
+  const localizedPosts = useMemo(
+    () => posts.filter(p => getPostLanguage(p.subreddit) === locale),
+    [posts, locale]
+  );
+
+  const freshness = useMemo(() => getDataFreshness(localizedPosts, locale), [localizedPosts, locale]);
 
   const newPostCount = useMemo(() => {
     if (!lastVisit) return 0;
-    return posts.filter(p => isNewSinceLastVisit(lastVisit, p.CreatedAt, p.created_utc)).length;
-  }, [posts, lastVisit]);
+    return localizedPosts.filter(p => isNewSinceLastVisit(lastVisit, p.CreatedAt, p.created_utc)).length;
+  }, [localizedPosts, lastVisit]);
 
-  const etfInsights = useMemo(() => getETFInsights(posts), [posts]);
-  const etfPostCount = useMemo(() => {
-    const ids = new Set<string>();
-    etfInsights.forEach(etf => etf.posts.forEach(p => ids.add(p.reddit_id)));
-    return ids.size;
-  }, [etfInsights]);
+  const etfInsights = useMemo(() => getETFInsights(localizedPosts), [localizedPosts]);
 
   const subredditCount = useMemo(() => {
-    return new Set(posts.map(p => p.subreddit)).size;
-  }, [posts]);
+    return new Set(localizedPosts.map(p => p.subreddit)).size;
+  }, [localizedPosts]);
 
+  // Hero/wire ranking by composite quality score (social + consensus + density + freshness)
+  // instead of raw upvote count — surfaces "worth reading" not just "most voted".
+  // Top 6 = rotation pool (5) + 1 buffer so sidebar always has 5 cards.
   const trending = useMemo(() => {
-    return [...posts]
-      .sort((a, b) => ((b.num_comments || 0) + (b.score || 0)) - ((a.num_comments || 0) + (a.score || 0)))
-      .slice(0, 8);
-  }, [posts]);
+    return [...localizedPosts]
+      .sort((a, b) => getPostQualityScore(b) - getPostQualityScore(a))
+      .slice(0, 6);
+  }, [localizedPosts]);
 
-  const topCategories = useMemo(() => {
-    const counts: Record<string, Post[]> = {};
-    posts.forEach(p => {
-      if (!p.category) return;
-      if (!counts[p.category]) counts[p.category] = [];
-      counts[p.category].push(p);
-    });
-    return Object.entries(counts)
-      .sort((a, b) => b[1].length - a[1].length)
-      .slice(0, 6)
-      .map(([category, catPosts]) => ({
-        category,
-        posts: catPosts
-          .sort((a, b) => ((b.num_comments || 0) + (b.score || 0)) - ((a.num_comments || 0) + (a.score || 0)))
-          .slice(0, 3),
-      }));
-  }, [posts]);
+  const topETFs = useMemo(() => etfInsights.slice(0, 5), [etfInsights]);
 
-  const topETFs = useMemo(() => etfInsights.slice(0, 4), [etfInsights]);
+  // Hero rotation: cycle through top 5 quality posts via localStorage idx counter.
+  // Anti-staleness for visitors who reload within the same scrape window (6h-6h).
+  // SSR renders pool[0]; client hydrates then swaps via post-mount state update.
+  const rotationPool = useMemo(() => trending.slice(0, 5), [trending]);
+  const [heroIdx, setHeroIdx] = useState(0);
 
-  const today = new Date().toLocaleDateString('fr-FR', {
+  useEffect(() => {
+    if (rotationPool.length === 0) return;
+    const stored = parseInt(localStorage.getItem('grepr-hero-idx') ?? '-1', 10);
+    const next = (Number.isFinite(stored) && stored >= 0 ? stored + 1 : 0) % rotationPool.length;
+    localStorage.setItem('grepr-hero-idx', String(next));
+    // One-shot mount sync of external state (localStorage) into React — not a cascading render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHeroIdx(next);
+  }, [rotationPool.length]);
+
+  const featured = rotationPool[heroIdx] ?? rotationPool[0];
+
+  // Sidebar: top 6 minus current hero = always 5 cards from highest-quality pool.
+  const sidebarPosts = useMemo(() => {
+    if (!featured) return trending.slice(0, 5);
+    return trending.filter((p) => p.reddit_id !== featured.reddit_id).slice(0, 5);
+  }, [trending, featured]);
+
+  // SourceBar slices: distribution of the hero post's category across subreddits
+  const heroSourceSlices = useMemo<SourceSlice[]>(() => {
+    if (!featured) return [];
+    const sameCategory = posts.filter(p => p.category && p.category === featured.category);
+    if (sameCategory.length === 0) return [];
+    const counts = new Map<string, number>();
+    for (const p of sameCategory) {
+      const key = p.subreddit;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    const total = sameCategory.length;
+    return Array.from(counts.entries())
+      .map(([source, count]) => ({
+        source,
+        count,
+        pct: Math.round((count / total) * 100),
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+  }, [featured, posts]);
+
+  const today = new Date().toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   });
 
-  const featured = trending[0];
-  const sidebarPosts = trending.slice(1, 6);
+  const lastUpdateTime = useMemo(() => {
+    if (posts.length === 0) return '—';
+    const mostRecent = posts.reduce((latest, p) => {
+      const t = p.CreatedAt || p.created_utc;
+      if (!t) return latest;
+      const d = new Date(typeof t === 'number' ? t * 1000 : t);
+      return d > latest ? d : latest;
+    }, new Date(0));
+    if (mostRecent.getTime() === 0) return '—';
+    return mostRecent.toLocaleTimeString(locale === 'fr' ? 'fr-FR' : 'en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }, [posts, locale]);
 
   return (
-    <main className="min-h-screen bg-[#fcfcfc] dark:bg-[#0f0f14]">
-      <div className="max-w-[1200px] mx-auto px-6 py-10">
-
-        {/* Header bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-12">
-          <div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
-              Grepr
-            </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 capitalize">{today}</p>
-          </div>
-
-          <div className="flex items-center gap-6">
-            <div className="text-right">
-              <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500 dark:text-slate-400">Posts</p>
-              <p className="text-lg font-medium text-slate-900 dark:text-slate-100 tabular-nums">{posts.length}</p>
+    <div className="font-sans text-stone-900 dark:text-stone-100 selection:bg-indigo-100">
+      {/* ═══ EDITORIAL TOP HALF ═══ */}
+      <section className="bg-[var(--editorial-bg)]">
+        {/* Condensed masthead */}
+        <div className="max-w-6xl mx-auto px-6 pt-12 pb-8 border-b border-[var(--editorial-border)]">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tighter leading-[0.9] mb-3 text-stone-900 dark:text-stone-100">
+                Grepr
+              </h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-stone-900 dark:text-stone-100 capitalize">
+                  {today}
+                </span>
+                <div className="h-px w-6 bg-indigo-600/40" />
+                <span className="flex items-center gap-1.5 text-[10px] font-medium tracking-widest uppercase text-[var(--editorial-muted)] dark:text-stone-400">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                  </span>
+                  {t('dashboard.live')}
+                </span>
+                {newPostCount > 0 && (
+                  <>
+                    <div className="h-px w-6 bg-indigo-600/40" />
+                    <span className="text-[10px] font-bold tracking-widest uppercase text-indigo-600 dark:text-indigo-400">
+                      +{newPostCount} {newPostCount > 1 ? t('dashboard.new_many') : t('dashboard.new_one')}
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
-            <div className="w-px h-8 bg-slate-200 dark:bg-white/10" />
-            <div className="text-right">
-              <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500 dark:text-slate-400">ETFs</p>
-              <p className="text-lg font-medium text-slate-900 dark:text-slate-100 tabular-nums">{etfPostCount}</p>
-            </div>
-            <div className="w-px h-8 bg-slate-200 dark:bg-white/10" />
-            <div className="text-right">
-              <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500 dark:text-slate-400">Subreddits</p>
-              <p className="text-lg font-medium text-slate-900 dark:text-slate-100 tabular-nums">{subredditCount}</p>
+
+            <div className="flex items-center gap-6">
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-stone-500 dark:text-stone-400">
+                  {t('dashboard.posts')}
+                </p>
+                <p className="text-lg font-medium text-stone-900 dark:text-stone-100 tabular-nums font-mono">
+                  {posts.length}
+                </p>
+              </div>
+              <div className="w-px h-8 bg-[var(--editorial-border)]" />
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-stone-500 dark:text-stone-400">
+                  {t('dashboard.subreddits')}
+                </p>
+                <p className="text-lg font-medium text-stone-900 dark:text-stone-100 tabular-nums font-mono">
+                  {subredditCount}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Daily Brief */}
-        <section className="mb-12">
-          <SectionDivider label="Briefing du jour" />
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Insights left (2 cols) */}
-            <div className="lg:col-span-2 space-y-4">
-              {topETFs.length > 0 && (
-                <div className="p-6 border border-slate-100 dark:border-white/10 rounded-xl bg-white dark:bg-[#1a1a22]">
-                  <div className="flex items-center gap-2 mb-4">
-                    <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                    <h3 className="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
-                      ETFs les plus discutes
-                    </h3>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {topETFs.map(etf => (
-                      <div key={etf.ticker} className="space-y-1">
-                        <p className="font-mono text-[11px] font-bold text-slate-900 dark:text-slate-100">{etf.ticker}</p>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{etf.name}</p>
-                        <p className="font-mono text-[11px] font-bold text-emerald-500">{etf.mentions} mention{etf.mentions > 1 ? 's' : ''}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="p-6 border border-slate-100 dark:border-white/10 rounded-xl bg-white dark:bg-[#1a1a22]">
-                <div className="flex items-center gap-2 mb-3">
-                  <Database className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
-                    Donnees
-                  </h3>
-                </div>
-                <div className="flex items-center gap-6 text-sm text-slate-600 dark:text-slate-400">
-                  <span>{freshness.label}</span>
-                  {newPostCount > 0 && (
-                    <>
-                      <span className="text-slate-300 dark:text-white/10">|</span>
-                      <span className="text-indigo-600 dark:text-indigo-400 font-medium">
-                        +{newPostCount} nouveau{newPostCount > 1 ? 'x' : ''}
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Alert card right (1 col) */}
-            <div className="p-6 border border-slate-100 dark:border-white/10 rounded-xl bg-white dark:bg-[#1a1a22] flex flex-col justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Radio className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
-                    Categories actives
-                  </h3>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {topCategories.slice(0, 6).map(({ category, posts: catPosts }) => (
-                    <span
-                      key={category}
-                      className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-sm border bg-indigo-50 border-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-300"
-                    >
-                      {category} ({catPosts.length})
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <Link
-                href="/posts"
-                className="mt-6 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors flex items-center gap-1"
+        {/* Hero featured post */}
+        {featured && (
+          <div className="max-w-6xl mx-auto px-6 py-10 border-b border-[var(--editorial-border)]">
+            <Eyebrow label={t('dashboard.featured')} />
+            <Link
+              href={`/posts/${featured.reddit_id}`}
+              className="group flex flex-col md:flex-row gap-6 md:gap-8"
+            >
+              <div
+                className={cn(
+                  'shrink-0 flex items-center justify-center w-full md:w-40 h-8 md:h-auto md:max-h-14 text-[10px] font-bold uppercase tracking-wide rounded-sm',
+                  getSourceColor(featured.subreddit)
+                )}
               >
-                Explorer tout <ExternalLink className="w-3 h-3" />
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* Category Columns */}
-        <section className="mb-12">
-          <SectionDivider label="Par categorie" />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {topCategories.map(({ category, posts: catPosts }) => {
-              const tagColor = getCategoryColor(category);
-              return (
-                <div key={category}>
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-sm ${tagColor}`}>
-                      {category}
+                r/{featured.subreddit}
+              </div>
+              <div className="flex flex-col gap-3 flex-1 min-w-0">
+                <div className="flex items-center gap-3 flex-wrap">
+                  {featured.category && (
+                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-sm leading-none shrink-0 tracking-wide uppercase">
+                      {featured.category}
                     </span>
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                      {catPosts.length} post{catPosts.length > 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <div className="space-y-1 divide-y divide-slate-100 dark:divide-white/10">
-                    {catPosts.map(post => {
-                      const pf = getPostFreshness(post.created_utc, post.created_a);
-                      return (
-                        <Link key={post.reddit_id} href={`/posts/${post.reddit_id}`} className="group block py-3 first:pt-0">
-                          <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-relaxed group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-2">
-                            {post.title}
-                          </p>
-                          <div className="flex items-center gap-3 mt-1.5">
-                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">r/{post.subreddit}</span>
-                            <span className="font-mono text-[10px] font-bold text-emerald-500 flex items-center gap-0.5">
-                              <ArrowUp className="w-3 h-3" />{post.score}
-                            </span>
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{pf.label}</span>
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
+                  )}
+                  <span className="text-[10px] font-medium text-stone-400 dark:text-stone-500 tabular-nums font-mono">
+                    {featured.score} · {featured.num_comments || 0} · {getPostFreshness(featured.created_utc, featured.created_a, locale).label}
+                  </span>
                 </div>
+                <h2 className="text-2xl md:text-3xl font-bold text-stone-900 dark:text-stone-100 leading-tight transition-colors group-hover:text-indigo-900 dark:group-hover:text-indigo-300">
+                  {featured.title}
+                </h2>
+                {featured.summary && (
+                  <p className="text-base text-stone-600 dark:text-stone-400 line-clamp-2 max-w-2xl">
+                    {featured.summary}
+                  </p>
+                )}
+                {heroSourceSlices.length > 1 && (
+                  <div className="pt-4">
+                    <SourceBar slices={heroSourceSlices} label={t('dashboard.discussed_in')} />
+                  </div>
+                )}
+              </div>
+            </Link>
+          </div>
+        )}
+
+        {/* Wire strip: latest posts */}
+        <div className="max-w-6xl mx-auto px-6 py-10">
+          <div className="flex items-center justify-between mb-4">
+            <Eyebrow label={t('dashboard.latest_posts')} />
+            <Link
+              href="/posts"
+              className="text-[10px] font-bold uppercase tracking-[0.15em] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors mb-4"
+            >
+              {t('dashboard.see_all')} →
+            </Link>
+          </div>
+          <div className="divide-y divide-[var(--warm-divider)] border-t border-[var(--warm-divider)]">
+            {sidebarPosts.map((post) => {
+              const pf = getPostFreshness(post.created_utc, post.created_a, locale);
+              return (
+                <Link
+                  key={post.reddit_id}
+                  href={`/posts/${post.reddit_id}`}
+                  className="group flex items-center justify-between py-4 px-2 -mx-2 transition-all duration-200 hover:bg-[var(--warm-hover)]"
+                >
+                  <div className="flex items-start gap-4 min-w-0 flex-1">
+                    <div
+                      className={cn(
+                        'hidden sm:flex shrink-0 w-32 justify-center items-center py-1 text-[10px] font-bold uppercase tracking-wide rounded-sm',
+                        getSourceColor(post.subreddit)
+                      )}
+                    >
+                      r/{post.subreddit}
+                    </div>
+                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {post.category && (
+                          <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-sm leading-none shrink-0 tracking-wide uppercase">
+                            {post.category}
+                          </span>
+                        )}
+                        <h3 className="text-base md:text-[17px] font-bold text-stone-900 dark:text-stone-100 leading-tight transition-colors group-hover:text-indigo-900 dark:group-hover:text-indigo-300 truncate">
+                          {post.title}
+                        </h3>
+                      </div>
+                      {post.summary && (
+                        <p className="text-sm text-stone-500 dark:text-stone-400 line-clamp-1 group-hover:text-stone-600 dark:group-hover:text-stone-300 max-w-xl">
+                          {post.summary}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-[10px] font-medium text-stone-400 dark:text-stone-500 tabular-nums font-mono whitespace-nowrap shrink-0 pl-4">
+                    {post.score} · {post.num_comments || 0} · {pf.label}
+                  </div>
+                </Link>
               );
             })}
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Trending Strip */}
-        <section className="mb-12">
-          <SectionDivider label="Tendances" />
+      {/* ═══ SHARP SEAM ═══ */}
+      <div className="w-full h-px bg-indigo-600/40" />
 
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-            {/* Featured post */}
-            {featured && (
-              <div className="lg:col-span-3">
-                <Link href={`/posts/${featured.reddit_id}`} className="group block">
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-sm border bg-indigo-50 border-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-300">
-                      {featured.category}
-                    </span>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">r/{featured.subreddit}</span>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase">
-                      {getPostFreshness(featured.created_utc, featured.created_a).label}
-                    </span>
-                  </div>
-                  <h3 className="text-2xl font-bold leading-tight text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors mb-3">
-                    {featured.title}
-                  </h3>
-                  {featured.summary && (
-                    <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-2xl line-clamp-3">
-                      {featured.summary}
-                    </p>
-                  )}
-                  <div className="border-t border-slate-100 dark:border-white/10 pt-4 mt-4 flex items-center gap-4">
-                    <span className="font-mono text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                      <ArrowUp className="w-3 h-3" /> {featured.score}
-                    </span>
-                    <span className="font-mono text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                      <MessageSquare className="w-3 h-3" /> {featured.num_comments || 0}
-                    </span>
-                    {(() => {
-                      const c = featured.consensus?.toLowerCase();
-                      const ci = c ? CONSENSUS_COLORS[c] : null;
-                      if (!ci) return null;
-                      return (
-                        <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                          <span className={`w-2 h-2 rounded-full ${ci.bg}`} aria-hidden="true" />
-                          {ci.label}
-                        </span>
-                      );
-                    })()}
-                    <span className="ml-auto text-sm font-medium text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors flex items-center gap-1">
-                      Lire <ExternalLink className="w-3 h-3" />
-                    </span>
-                  </div>
-                </Link>
-              </div>
-            )}
-
-            {/* Sidebar list */}
-            <div className="lg:col-span-2 space-y-0">
-              {sidebarPosts.map(post => {
-                const pf = getPostFreshness(post.created_utc, post.created_a);
-                return (
-                  <Link key={post.reddit_id} href={`/posts/${post.reddit_id}`} className="group block border-b border-slate-100 dark:border-white/10 pb-6 mb-6 last:border-0 last:mb-0 last:pb-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-                        {post.category}
-                      </span>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase">
-                        {pf.label}
-                      </span>
-                    </div>
-                    <p className="text-sm font-bold leading-relaxed text-slate-900 dark:text-slate-100 group-hover:underline line-clamp-2">
-                      {post.title}
-                    </p>
-                    <div className="flex items-center gap-3 mt-1.5">
-                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">r/{post.subreddit}</span>
-                      <span className="font-mono text-[10px] font-bold text-emerald-500 flex items-center gap-0.5">
-                        <ArrowUp className="w-3 h-3" />{post.score}
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
+      {/* ═══ COCKPIT BOTTOM HALF ═══ */}
+      <section className="bg-[var(--cockpit-bg)]">
+        {/* Eyebrow + stats strip */}
+        <div className="max-w-6xl mx-auto px-6 pt-10 pb-8 border-b border-[var(--warm-border)]">
+          <Eyebrow label={t('dashboard.section_data')} />
+          <div className="flex items-stretch gap-6 divide-x divide-[var(--warm-border)]">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-1">
+                {t('dashboard.total_posts')}
+              </span>
+              <span className="text-xl font-bold tracking-tight font-mono text-stone-900 dark:text-stone-100 tabular-nums">
+                {posts.length.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex flex-col pl-6">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-1">
+                {t('dashboard.active_sources')}
+              </span>
+              <span className="text-xl font-bold tracking-tight font-mono text-stone-900 dark:text-stone-100 tabular-nums">
+                {subredditCount}
+              </span>
+            </div>
+            <div className="flex flex-col pl-6">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-1">
+                {t('dashboard.last_update')}
+              </span>
+              <span className="text-xl font-bold tracking-tight font-mono text-indigo-600 dark:text-indigo-400 tabular-nums">
+                {lastUpdateTime}
+              </span>
             </div>
           </div>
-        </section>
+          <p className="mt-2 text-[10px] text-stone-400 dark:text-stone-500">
+            {freshness.label}
+          </p>
+        </div>
 
-        {/* Quick Links */}
-        <section>
-          <SectionDivider label="Raccourcis" />
-          <div className="flex flex-wrap gap-4">
+        {/* ETF snapshot — top 5 */}
+        <div className="max-w-6xl mx-auto px-6 py-10">
+          <div className="flex items-center justify-between mb-4">
+            <Eyebrow label={t('dashboard.top_etfs')} />
             <Link
-              href="/posts"
-              className="px-5 py-2.5 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-medium hover:opacity-90 transition-opacity"
+              href="/etf"
+              className="text-[10px] font-bold uppercase tracking-[0.15em] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors mb-4"
             >
-              Explorer les posts
+              {t('dashboard.see_full_ranking')} →
             </Link>
           </div>
-        </section>
 
-      </div>
-    </main>
+          <div className="overflow-x-auto bg-[var(--paper-bg)] border border-[var(--warm-border)] rounded-sm">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-[var(--warm-border)] bg-[var(--warm-divider)]/60">
+                  <th className="py-3 px-6 w-12 text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">#</th>
+                  <th className="py-3 px-4 text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">{t('etf.col_ticker')}</th>
+                  <th className="py-3 px-4 text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">{t('etf.col_provider')}</th>
+                  <th className="py-3 px-4 text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">PEA</th>
+                  <th className="py-3 px-4 pr-6 text-right text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+                    {t('etf.col_mentions')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--warm-divider)]">
+                {topETFs.map((etf, index) => {
+                  const isPea = etf.eligible === 'PEA' || etf.eligible === 'Both';
+                  const isUp = etf.sentiment === 'positive';
+                  return (
+                    <tr
+                      key={etf.ticker}
+                      className="group hover:bg-[var(--warm-hover)] transition-colors cursor-default"
+                    >
+                      <td className="py-2.5 px-6 font-mono text-xs text-stone-400 dark:text-stone-500 tabular-nums">
+                        {(index + 1).toString().padStart(2, '0')}
+                      </td>
+                      <td className="py-2.5 px-4">
+                        <span className="inline-flex items-center justify-center rounded px-2 py-0.5 text-xs font-bold tracking-tight bg-[var(--ticker-pill)] text-stone-700 dark:text-stone-200 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                          {etf.ticker}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-4">
+                        <span className="text-sm font-medium text-stone-700 dark:text-stone-300 line-clamp-1 transition-colors group-hover:font-semibold group-hover:text-stone-900 dark:group-hover:text-stone-100">
+                          {etf.provider}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-4">
+                        {isPea ? (
+                          <div className="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 p-0.5 rounded inline-flex">
+                            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                          </div>
+                        ) : (
+                          <span className="text-stone-300 dark:text-stone-600 text-[10px]">—</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-4 pr-6 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="font-mono text-sm font-semibold text-stone-900 dark:text-stone-100 tabular-nums">
+                            {etf.mentions.toLocaleString()}
+                          </span>
+                          {isUp ? (
+                            <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : (
+                            <TrendingDown className="h-3.5 w-3.5 text-stone-400 dark:text-stone-500" />
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }

@@ -64,7 +64,4 @@ export function getTagsFromPost(post: Post): string[] {
   return post.tags.split(',').map(tag => tag.trim()).filter(Boolean);
 }
 
-// Re-export ETF types and utilities from client-safe module
-export { ETF_DATABASE, getETFInsights } from './etf-data';
-export type { ETFInfo, ETFInsight } from './etf-data';
 
