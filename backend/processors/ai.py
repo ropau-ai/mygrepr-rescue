@@ -3,7 +3,9 @@ AI Processor for Grepr - Categorize and summarize posts using Groq or DeepSeek A
 """
 import json
 import re
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
 from groq import Groq
 from backend.config import (
@@ -12,6 +14,49 @@ from backend.config import (
     DEEPSEEK_API_KEY, DEEPSEEK_MODEL, DEEPSEEK_BASE_URL,
     CATEGORIES, CATEGORY_DESCRIPTIONS, logger
 )
+
+
+# --- Rate-limit observability -------------------------------------------------
+# Shared counter incremented each time we take a 429 from the AI provider.
+# Reset it around a batch (e.g. `compare` mode) to measure 429 pressure.
+_rate_limit_counter_lock = threading.Lock()
+_rate_limit_counter = {"count": 0}
+
+
+def reset_rate_limit_counter() -> None:
+    with _rate_limit_counter_lock:
+        _rate_limit_counter["count"] = 0
+
+
+def get_rate_limit_count() -> int:
+    with _rate_limit_counter_lock:
+        return _rate_limit_counter["count"]
+
+
+def _bump_rate_limit_counter() -> None:
+    with _rate_limit_counter_lock:
+        _rate_limit_counter["count"] += 1
+
+
+# --- Rate limiter (token bucket, min-interval flavor) -------------------------
+# Groq free tier Llama 3.3 70B = ~30 req/min. We stay below to leave headroom.
+# min_interval is a hard floor between two API acquire()s across all threads.
+class RateLimiter:
+    """Thread-safe min-interval rate limiter. rate_per_min = RPM target."""
+
+    def __init__(self, rate_per_min: float):
+        self.min_interval = 60.0 / max(rate_per_min, 1.0)
+        self._lock = threading.Lock()
+        self._last = 0.0
+
+    def acquire(self) -> None:
+        with self._lock:
+            now = time.monotonic()
+            wait = (self._last + self.min_interval) - now
+            if wait > 0:
+                time.sleep(wait)
+                now = time.monotonic()
+            self._last = now
 
 
 def extract_financial_data(text: str) -> dict:
@@ -212,6 +257,7 @@ def retry_with_backoff(func, max_retries=5, base_delay=2):
         try:
             return func()
         except (GroqRateLimitError, OpenAIRateLimitError) as e:
+            _bump_rate_limit_counter()
             if attempt == max_retries - 1:
                 raise
             delay = base_delay * (3 ** attempt)
@@ -383,6 +429,42 @@ def process_posts(posts: list[dict], delay_between_calls: float = 1.5) -> list[d
             time.sleep(delay_between_calls)
 
     return processed
+
+
+def process_posts_parallel(
+    posts: list[dict],
+    max_workers: int = 4,
+    rate_per_min: float = 28.0,
+) -> list[dict]:
+    """
+    Parallel AI processing with a shared rate limiter.
+
+    - max_workers: concurrent threads calling Groq (network I/O bound)
+    - rate_per_min: target RPM, enforced by a shared token bucket.
+      Default 28 leaves headroom below Groq free tier (~30/min).
+
+    Output order matches input order (critical for reproducibility vs legacy).
+    """
+    if not posts:
+        return []
+
+    limiter = RateLimiter(rate_per_min=rate_per_min)
+    total = len(posts)
+
+    def worker(idx_post):
+        idx, post = idx_post
+        limiter.acquire()
+        logger.info(f"[parallel] {idx+1}/{total}: {post.get('title', '')[:50]}...")
+        return idx, categorize_and_summarize(post)
+
+    results = [None] * total
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        futures = [ex.submit(worker, (i, p)) for i, p in enumerate(posts)]
+        for fut in as_completed(futures):
+            idx, enriched = fut.result()
+            results[idx] = enriched
+
+    return results
 
 
 def find_similar_posts(posts: list[dict]) -> dict:

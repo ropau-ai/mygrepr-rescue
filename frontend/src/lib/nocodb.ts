@@ -64,4 +64,23 @@ export function getTagsFromPost(post: Post): string[] {
   return post.tags.split(',').map(tag => tag.trim()).filter(Boolean);
 }
 
+export async function fetchPostByRedditId(redditId: string): Promise<Post | null> {
+  const { baseUrl, token, tableId } = getEnvConfig();
+  const where = `(reddit_id,eq,${redditId})`;
+  const url = `${baseUrl}/api/v2/tables/${tableId}/records?where=${encodeURIComponent(where)}&limit=1`;
+
+  const response = await fetch(url, {
+    headers: { 'xc-token': token },
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error(`NocoDB fetchPostByRedditId failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const list: Post[] = data.list || [];
+  return list[0] ?? null;
+}
+
 

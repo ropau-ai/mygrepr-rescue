@@ -2,6 +2,7 @@
 Reddit Fetcher - Uses PullPush.io API (free, no auth required)
 with PRAW fallback if credentials are configured.
 """
+import threading
 import time
 import requests
 from datetime import datetime, timedelta
@@ -10,6 +11,27 @@ from backend.config import (
     SUBREDDITS, MIN_SCORE, MIN_SCORE_NEW, POSTS_PER_REQUEST, TIME_FILTER,
     REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT, USER_AGENT, logger
 )
+
+
+# --- PullPush rate limiter (shared across threads) ---------------------------
+# PullPush.io tolerates ~2 req/s sustained from a single client before 429.
+# When the scheduler fetches multiple subs concurrently, comment fetches must
+# share a single limiter or we DDoS ourselves into a 429 storm.
+_PULLPUSH_MIN_INTERVAL = 0.5  # 2 req/s hard ceiling across all threads
+_pullpush_lock = threading.Lock()
+_pullpush_last_call = 0.0
+
+
+def _pullpush_throttle() -> None:
+    """Block until it's safe to make the next PullPush call."""
+    global _pullpush_last_call
+    with _pullpush_lock:
+        now = time.monotonic()
+        wait = (_pullpush_last_call + _PULLPUSH_MIN_INTERVAL) - now
+        if wait > 0:
+            time.sleep(wait)
+            now = time.monotonic()
+        _pullpush_last_call = now
 
 # PullPush.io API base URL
 PULLPUSH_BASE = "https://api.pullpush.io/reddit"
@@ -139,6 +161,7 @@ def _fetch_pullpush(subreddit: str, time_filter: str, limit: int, sort: str, min
         data = None
         for attempt in range(3):
             try:
+                _pullpush_throttle()
                 response = requests.get(url, params=params, timeout=30)
                 response.raise_for_status()
                 data = response.json()
@@ -227,7 +250,18 @@ def _fetch_top_comment_pullpush(post_id: str) -> dict | None:
     }
 
     try:
-        response = requests.get(url, params=params, timeout=15)
+        _pullpush_throttle()
+        # Exponential backoff on 429 — top comments are optional enrichment,
+        # don't blow the whole pipeline if PullPush is hot.
+        response = None
+        for attempt in range(3):
+            response = requests.get(url, params=params, timeout=15)
+            if response.status_code != 429:
+                break
+            wait = 2 ** (attempt + 1)
+            logger.warning(f"PullPush 429 on comment {post_id}, backoff {wait}s ({attempt+1}/3)")
+            time.sleep(wait)
+            _pullpush_throttle()
         response.raise_for_status()
         data = response.json()
 

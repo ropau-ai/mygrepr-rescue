@@ -65,6 +65,15 @@
   --warm-divider: #ebe6d0;
   --warm-hover: #f1eedf;
   --ticker-pill: #e8e3cd;
+
+  /* Ropau signature — greffe crimson sur la DA éditoriale Grepr */
+  --ropau-crimson: #DC143C;
+  --debate-sceptique-ink: #1f2437;
+  --debate-sceptique-muted: #4a5374;
+  --debate-sceptique-surface: #eef0f7;
+  --debate-riskeur-ink: #5a1322;
+  --debate-riskeur-muted: #8a3a4b;
+  --debate-riskeur-surface: #f8e4e4;
 }
 
 .dark {
@@ -97,6 +106,15 @@
   --warm-divider: #2a2723;
   --warm-hover: #1f1d18;
   --ticker-pill: #2a2723;
+
+  /* Dark tuning: crimson reste crimson, surfaces Debate s'aplatissent */
+  --ropau-crimson: #DC143C;
+  --debate-sceptique-ink: #c8cde0;
+  --debate-sceptique-muted: #8892b2;
+  --debate-sceptique-surface: #1a1d2b;
+  --debate-riskeur-ink: #f3d5dc;
+  --debate-riskeur-muted: #d19aa8;
+  --debate-riskeur-surface: #2a1a20;
 }
 
 @layer base {
