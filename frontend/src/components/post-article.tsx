@@ -8,6 +8,7 @@ import { ArrowLeft, ExternalLink, ArrowUp, MessageSquare, Clock, Share2, Check, 
 import Link from 'next/link';
 import { cn, getPostFreshness } from '@/lib/utils';
 import { useLanguage } from '@/components/language-provider';
+import { SparkleMark } from '@/components/debate/ropau-sigil';
 
 interface PostArticleProps {
   post: Post;
@@ -239,7 +240,15 @@ export function PostArticle({ post, relatedPosts }: PostArticleProps) {
             )}
 
             {/* Actions */}
-            <div className="border-t border-[var(--warm-border)] pt-6 flex items-center gap-3">
+            <div className="border-t border-[var(--warm-border)] pt-6 flex items-center gap-3 flex-wrap">
+              <Link
+                href={`/debate/${post.reddit_id}`}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-sm bg-[color:var(--ropau-crimson)] text-white text-xs font-bold uppercase tracking-[0.15em] hover:bg-[#b81033] transition-colors"
+                aria-label="Lancer le débat IA sur ce post"
+              >
+                <SparkleMark size={12} />
+                Lancer le débat
+              </Link>
               {safeUrl && (
                 <a
                   href={safeUrl}

@@ -32,6 +32,8 @@ type Phase = 'idle' | 'streaming' | 'verdict' | 'error';
 type Meta = {
   title?: string;
   personas?: PersonaMeta[];
+  total_turns?: number;
+  stage?: 'starting' | 'ready';
 };
 
 const PERSONAS: Record<
@@ -54,7 +56,7 @@ const PERSONAS: Record<
   },
 };
 
-const TOTAL_TURNS = 4;
+const DEFAULT_TOTAL_TURNS = 6;
 
 export function DebateView({ post }: { post: Post }) {
   const [phase, setPhase] = useState<Phase>('idle');
@@ -64,23 +66,13 @@ export function DebateView({ post }: { post: Post }) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [meta, setMeta] = useState<Meta>({});
-  const [runKey, setRunKey] = useState(0);
+  const [totalTurns, setTotalTurns] = useState<number>(DEFAULT_TOTAL_TURNS);
 
   const abortRef = useRef<AbortController | null>(null);
   const sceptiqueRef = useRef<HTMLDivElement | null>(null);
   const riskeurRef = useRef<HTMLDivElement | null>(null);
 
   const sourceClass = useMemo(() => getSourceColor(post.subreddit), [post.subreddit]);
-
-  const reset = useCallback(() => {
-    abortRef.current?.abort();
-    setTurns([]);
-    setActivePersona(null);
-    setVerdict(null);
-    setErrorMsg(null);
-    setMeta({});
-    setPhase('idle');
-  }, []);
 
   const startDebate = useCallback(async () => {
     abortRef.current?.abort();
@@ -92,12 +84,21 @@ export function DebateView({ post }: { post: Post }) {
     setVerdict(null);
     setErrorMsg(null);
     setMeta({});
+    setTotalTurns(DEFAULT_TOTAL_TURNS);
     setPhase('streaming');
 
     const handleEvent = (event: string, data: unknown) => {
       if (event === 'meta') {
-        const m = data as { title?: string; personas?: PersonaMeta[] };
-        setMeta({ title: m.title, personas: m.personas });
+        const m = data as {
+          title?: string;
+          personas?: PersonaMeta[];
+          total_turns?: number;
+          stage?: 'starting' | 'ready';
+        };
+        setMeta((prev) => ({ ...prev, ...m }));
+        if (typeof m.total_turns === 'number' && m.total_turns > 0) {
+          setTotalTurns(m.total_turns);
+        }
         return;
       }
       if (event === 'turn_start') {
@@ -144,8 +145,25 @@ export function DebateView({ post }: { post: Post }) {
         headers: { Accept: 'text/event-stream' },
       });
 
-      if (!res.ok || !res.body) {
-        throw new Error(`Stream HTTP ${res.status}`);
+      const contentType = res.headers.get('content-type') || '';
+      const isSSE = contentType.includes('text/event-stream');
+
+      if (!res.ok || !res.body || !isSSE) {
+        const body = await res.text().catch(() => '');
+        let friendly: string;
+        if (res.status === 429) {
+          const retry = res.headers.get('retry-after');
+          friendly = `Trois débats IA déjà en cours depuis cette IP. Réessaie dans ${retry ?? '10'} secondes.`;
+        } else if (res.status === 500 && /GROQ_API_KEY/i.test(body)) {
+          friendly = `Clé Groq manquante côté serveur — le débat ne peut pas démarrer.`;
+        } else if (!isSSE && res.status === 200) {
+          friendly = `Réponse inattendue du serveur (${contentType || 'type inconnu'}).`;
+        } else {
+          friendly = body.slice(0, 180) || `Stream HTTP ${res.status}`;
+        }
+        setErrorMsg(friendly);
+        setPhase('error');
+        return;
       }
 
       const reader = res.body.getReader();
@@ -189,14 +207,6 @@ export function DebateView({ post }: { post: Post }) {
       setPhase('error');
     }
   }, [post.reddit_id]);
-
-  useEffect(() => {
-    if (runKey === 0) return;
-    startDebate();
-    return () => {
-      abortRef.current?.abort();
-    };
-  }, [runKey, startDebate]);
 
   useEffect(() => {
     return () => {
@@ -268,7 +278,7 @@ export function DebateView({ post }: { post: Post }) {
           <p className="text-sm text-slate-600 dark:text-slate-400 max-w-3xl leading-relaxed">
             Deux personas Ropau s&apos;affrontent en streaming sur ce post.
             Le Sceptique tient les fondamentaux, Le Riskeur assume la convexité.
-            Quatre tours, un verdict — trois points d&apos;accord, deux points de friction irréductibles.
+            Six tours alternés, un verdict — trois points d&apos;accord, deux points de friction irréductibles.
           </p>
         </header>
 
@@ -276,7 +286,9 @@ export function DebateView({ post }: { post: Post }) {
         <div className="mb-8 flex flex-wrap items-center gap-3">
           {phase === 'idle' && (
             <button
-              onClick={() => setRunKey((k) => k + 1)}
+              onClick={() => {
+                void startDebate();
+              }}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-sm bg-[color:var(--ropau-crimson)] text-white text-xs font-bold uppercase tracking-[0.15em] hover:bg-[#b81033] transition-colors"
             >
               <Play className="w-3.5 h-3.5" />
@@ -286,8 +298,7 @@ export function DebateView({ post }: { post: Post }) {
           {(phase === 'verdict' || phase === 'error') && (
             <button
               onClick={() => {
-                reset();
-                setRunKey((k) => k + 1);
+                void startDebate();
               }}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-sm border border-[var(--warm-border)] text-xs font-bold uppercase tracking-[0.15em] text-slate-700 dark:text-slate-200 hover:border-[color:var(--ropau-crimson)] hover:text-[color:var(--ropau-crimson)] transition-colors"
             >
@@ -314,7 +325,9 @@ export function DebateView({ post }: { post: Post }) {
           {phase === 'streaming' && (
             <span className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
               <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--ropau-crimson)] animate-pulse" />
-              Streaming · {progressCount}/{TOTAL_TURNS}
+              {meta.stage === 'starting' && !meta.title
+                ? 'Connexion…'
+                : `Streaming · ${progressCount}/${totalTurns}`}
             </span>
           )}
         </div>
@@ -327,6 +340,7 @@ export function DebateView({ post }: { post: Post }) {
             turns={sceptiqueTurns}
             active={activePersona === 'sceptique'}
             hasStarted={phase !== 'idle'}
+            totalTurns={totalTurns}
           />
           <DebateColumn
             ref={riskeurRef}
@@ -334,13 +348,14 @@ export function DebateView({ post }: { post: Post }) {
             turns={riskeurTurns}
             active={activePersona === 'riskeur'}
             hasStarted={phase !== 'idle'}
+            totalTurns={totalTurns}
           />
         </div>
 
         {/* Progress ticks */}
         {phase !== 'idle' && (
           <div className="mt-6 flex items-center justify-center gap-2">
-            {Array.from({ length: TOTAL_TURNS }).map((_, i) => {
+            {Array.from({ length: totalTurns }).map((_, i) => {
               const turn = turns[i];
               const state = !turn ? 'pending' : turn.status === 'done' ? 'done' : 'active';
               return (
@@ -387,10 +402,11 @@ interface DebateColumnProps {
   turns: Turn[];
   active: boolean;
   hasStarted: boolean;
+  totalTurns: number;
 }
 
 const DebateColumn = forwardRef<HTMLDivElement, DebateColumnProps>(function DebateColumn(
-  { persona, turns, active, hasStarted },
+  { persona, turns, active, hasStarted, totalTurns },
   ref
 ) {
   const meta = PERSONAS[persona];
@@ -518,7 +534,7 @@ const DebateColumn = forwardRef<HTMLDivElement, DebateColumnProps>(function Deba
                 )}
               >
                 <span>
-                  Tour {turnNumber}/{TOTAL_TURNS}
+                  Tour {turnNumber}/{totalTurns}
                 </span>
                 {turn.status === 'streaming' && <span>▌</span>}
               </div>

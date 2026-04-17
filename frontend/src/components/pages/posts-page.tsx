@@ -8,6 +8,7 @@ import { getLastVisit, updateLastVisit } from '@/lib/last-visit';
 import { getSourceColor } from '@/lib/design-tokens';
 import Link from 'next/link';
 import { useLanguage } from '@/components/language-provider';
+import { SparkleMark } from '@/components/debate/ropau-sigil';
 
 interface PostsPageProps {
   posts: Post[];
@@ -383,61 +384,81 @@ export function PostsPage({ posts }: PostsPageProps) {
                 const confidence = sortBy === 'confidence' ? getConfidenceScore(post, locale) : null;
 
                 return (
-                  <Link
+                  <div
                     key={post.Id}
-                    href={`/posts/${post.reddit_id}`}
-                    className="group flex items-center justify-between py-4 px-2 -mx-2 transition-all duration-200 hover:bg-[var(--warm-hover)]"
+                    className="group relative flex items-center justify-between py-4 px-2 -mx-2 transition-all duration-200 hover:bg-[var(--warm-hover)]"
                   >
-                    <div className="flex items-start gap-4 min-w-0 flex-1">
-                      <div className={cn(
-                        'hidden sm:flex shrink-0 w-32 justify-center items-center py-1 text-[10px] font-bold uppercase tracking-wide rounded-sm',
-                        sourceClass
-                      )}>
-                        r/{post.subreddit}
-                      </div>
-                      <div className="flex flex-col gap-1 min-w-0 flex-1">
-                        <div className="flex items-center gap-3 min-w-0">
-                          {post.category && (
-                            <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded-sm leading-none shrink-0 tracking-wide uppercase">
-                              {post.category}
-                            </span>
-                          )}
-                          {post.consensus && CONSENSUS_COLORS[post.consensus.toLowerCase()] && (
-                            <span
-                              title={`Consensus: ${CONSENSUS_COLORS[post.consensus.toLowerCase()].label}`}
-                              className={cn(
-                                'h-1.5 w-1.5 rounded-full shrink-0',
-                                CONSENSUS_COLORS[post.consensus.toLowerCase()].bg
-                              )}
-                            />
-                          )}
-                          <h2 className="text-base md:text-[17px] font-bold text-foreground leading-tight transition-colors group-hover:text-indigo-900 dark:group-hover:text-indigo-300 truncate">
-                            {post.title}
-                          </h2>
+                    <Link
+                      href={`/posts/${post.reddit_id}`}
+                      className="flex items-center min-w-0 flex-1 gap-4"
+                    >
+                      <div className="flex items-start gap-4 min-w-0 flex-1">
+                        <div className={cn(
+                          'hidden sm:flex shrink-0 w-32 justify-center items-center py-1 text-[10px] font-bold uppercase tracking-wide rounded-sm',
+                          sourceClass
+                        )}>
+                          r/{post.subreddit}
                         </div>
-                        {post.summary && (
-                          <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-1 group-hover:text-slate-600 dark:group-hover:text-slate-300 max-w-2xl">
-                            {post.summary}
-                          </p>
+                        <div className="flex flex-col gap-1 min-w-0 flex-1">
+                          <div className="flex items-center gap-3 min-w-0">
+                            {post.category && (
+                              <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded-sm leading-none shrink-0 tracking-wide uppercase">
+                                {post.category}
+                              </span>
+                            )}
+                            {post.consensus && CONSENSUS_COLORS[post.consensus.toLowerCase()] && (
+                              <span
+                                title={`Consensus: ${CONSENSUS_COLORS[post.consensus.toLowerCase()].label}`}
+                                className={cn(
+                                  'h-1.5 w-1.5 rounded-full shrink-0',
+                                  CONSENSUS_COLORS[post.consensus.toLowerCase()].bg
+                                )}
+                              />
+                            )}
+                            <h2 className="text-base md:text-[17px] font-bold text-foreground leading-tight transition-colors group-hover:text-indigo-900 dark:group-hover:text-indigo-300 truncate">
+                              {post.title}
+                            </h2>
+                          </div>
+                          {post.summary && (
+                            <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-1 group-hover:text-slate-600 dark:group-hover:text-slate-300 max-w-2xl">
+                              {post.summary}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end shrink-0 pl-4">
+                        <div className="text-[10px] font-medium text-slate-400 dark:text-slate-500 tabular-nums whitespace-nowrap">
+                          {post.score || 0} · {post.num_comments || 0}{timeLabel ? ` · ${timeLabel}` : ''}
+                        </div>
+                        {confidence && (
+                          <div className={cn('text-[10px] font-mono font-bold tabular-nums mt-0.5', confidence.color)}>
+                            {confidence.score}%
+                          </div>
                         )}
                       </div>
-                    </div>
 
-                    <div className="flex flex-col items-end shrink-0 pl-4">
-                      <div className="text-[10px] font-medium text-slate-400 dark:text-slate-500 tabular-nums whitespace-nowrap">
-                        {post.score || 0} · {post.num_comments || 0}{timeLabel ? ` · ${timeLabel}` : ''}
+                      <div className="hidden md:block opacity-0 group-hover:opacity-100 transition-all ml-4">
+                        <ArrowUpRight className="w-4 h-4 text-indigo-400" />
                       </div>
-                      {confidence && (
-                        <div className={cn('text-[10px] font-mono font-bold tabular-nums mt-0.5', confidence.color)}>
-                          {confidence.score}%
-                        </div>
-                      )}
-                    </div>
+                    </Link>
 
-                    <div className="hidden md:block opacity-0 group-hover:opacity-100 transition-all ml-4">
-                      <ArrowUpRight className="w-4 h-4 text-indigo-400" />
-                    </div>
-                  </Link>
+                    <Link
+                      href={`/debate/${post.reddit_id}`}
+                      aria-label={`Lancer le débat IA sur : ${post.title}`}
+                      className={cn(
+                        'shrink-0 ml-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm',
+                        'text-[10px] font-bold uppercase tracking-[0.12em]',
+                        'border border-[color:var(--ropau-crimson)]/30',
+                        'text-[color:var(--ropau-crimson)] dark:text-[#FF6B85]',
+                        'bg-[color:var(--ropau-crimson)]/0 hover:bg-[color:var(--ropau-crimson)]/10',
+                        'md:opacity-0 md:group-hover:opacity-100 transition-all'
+                      )}
+                    >
+                      <SparkleMark size={10} />
+                      Débat
+                    </Link>
+                  </div>
                 );
               }) : (
                 <div className="py-20 text-center">
