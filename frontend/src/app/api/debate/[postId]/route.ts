@@ -16,12 +16,16 @@ export const dynamic = 'force-dynamic';
 //   event: error        data: { message }
 //
 // Constraints (BRIEF_GREPR_DEBATE_API.md):
-//   - 4-6 tours alternés, chaque persona voit les précédents (6 tours ici).
+//   - 4-6 tours alternés, chaque persona voit les précédents (4 tours ici).
 //   - Pas de persistance, rate limit concurrent 3/IP, premier token < 2s, français.
 
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
+// Verdict uses a lighter model — its JSON extraction is cheap and its TPM
+// bucket is separate from the 70B one, which the turns saturate on free tier.
+const GROQ_VERDICT_MODEL = 'llama-3.1-8b-instant';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const TOTAL_TURNS = 6;
+// 4 tours : cumul tokens 70B ~6k, laisse marge sous la limite TPM free 12k/min.
+const TOTAL_TURNS = 4;
 const MAX_CONCURRENT_PER_IP = 3;
 
 type PersonaId = 'sceptique' | 'riskeur';
@@ -74,16 +78,22 @@ Ton : vif, argumenté, contrariant. Tu clos tes interventions par un pari explic
 }
 
 function verdictSystem(): string {
-  return `Tu es un observateur neutre qui lit un débat entre « Le Sceptique » (fondamentaliste) et « Le Riskeur » (contrariant growth). Ta tâche : extraire la structure du désaccord.
+  return `Tu es un observateur neutre qui lit un débat entre « Le Sceptique » et « Le Riskeur ». Tu extrais 3 accords et 2 frictions irréductibles.
 
-Règles :
-- 3 points d'accord concrets où les deux personas convergent (chiffres, faits, méthodes partagés). Pas de banalités.
-- 2 points de friction irréductibles : désaccords qui ne se résolvent PAS par plus d'information. Ce sont des divergences de méthode, de préférence temporelle ou de tolérance au risque.
-- Langue : français. Pas d'englishisme gratuit.
-- Réponds STRICTEMENT en JSON, sans texte autour, sans markdown, sans backticks. Clés exactes.
+RÈGLES STRICTES :
+- Réponds UNIQUEMENT par un objet JSON valide, rien d'autre.
+- "agreements" : tableau d'EXACTEMENT 3 chaînes de caractères (strings), chacune est UNE phrase française complète.
+- "frictions" : tableau d'EXACTEMENT 2 chaînes de caractères (strings), chacune est UNE phrase française complète.
+- Aucun objet imbriqué, aucun tableau imbriqué, aucune clé supplémentaire. Chaque entrée = une string.
+- Langue : français.
 
-Format attendu :
-{"agreements": ["…", "…", "…"], "frictions": ["…", "…"]}`;
+EXEMPLE CORRECT :
+{"agreements":["Les deux personas acceptent que le TER soit un critère de filtre.","Les deux s'accordent sur un horizon minimum de 10 ans.","Les deux reconnaissent que le levier bancaire est un outil puissant."],"frictions":["Le Sceptique veut 100% passif, Le Riskeur exige 30% de convictions actives.","Le Sceptique privilégie le risque de drawdown, Le Riskeur le coût d'opportunité."]}
+
+EXEMPLE INCORRECT (NE PAS FAIRE) :
+{"agreements":[{"point":"..."},{"chiffre":800}],"frictions":["..."]}
+
+Produis uniquement le JSON, rien d'autre.`;
 }
 
 function postContext(post: Post): string {
@@ -117,7 +127,7 @@ async function streamGroqTokens(
       messages,
       stream: true,
       temperature: 0.8,
-      max_tokens: 420,
+      max_tokens: 320,
     }),
     signal,
   });
@@ -171,7 +181,7 @@ async function callGroqJSON(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: GROQ_MODEL,
+      model: GROQ_VERDICT_MODEL,
       messages,
       stream: false,
       temperature: 0.25,
